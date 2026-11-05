@@ -1,0 +1,430 @@
+# Endpoints da API
+
+> Gerado por `python scripts/export_openapi.py` a partir de `openapi.json`. Não edite à mão: altere os schemas/routers e regenere.
+
+**Vax Coverage SP Analytics API** — versão 0.1.0
+
+Swagger UI: `/docs` · ReDoc: `/redoc` · Contrato: `/openapi.json`.
+
+## Endpoints
+
+| Método | Caminho | Resumo |
+|---|---|---|
+| GET | `/api/v1/health` | Verifica o estado da API |
+| GET | `/api/v1/coverage` | Indicadores de cobertura e déficit |
+| GET | `/api/v1/coverage/filters` | Valores disponíveis para os filtros |
+| GET | `/api/v1/coverage/history` | Série histórica de cobertura e déficit |
+| GET | `/api/v1/municipalities` | Lista municípios com cobertura e déficit médios |
+| GET | `/api/v1/municipalities/{municipality_id}` | Detalhe de um município |
+| GET | `/api/v1/predictions` | Classe de déficit prevista para o ano seguinte |
+| GET | `/api/v1/models` | Avaliação dos modelos treinados |
+| GET | `/api/v1/data-quality` | Qualidade dos dados e lacunas conhecidas |
+| GET | `/api/v1/geo/municipalities` | GeoJSON dos municípios de São Paulo |
+
+### GET `/api/v1/health`
+
+Retorna `ok` quando o serviço está em execução. Não consulta os dados.
+
+| Código | Corpo |
+|---|---|
+| 200 | HealthResponse |
+
+### GET `/api/v1/coverage`
+
+KPIs agregados (cobertura média, déficit médio, municípios abaixo da meta e críticos), distribuição por classe de déficit e ranking de municípios com maior déficit médio. Médias simples sobre as linhas filtradas. Sem dataset, retorna `data_unavailable`.
+
+| Parâmetro | Em | Tipo | Obrigatório | Descrição |
+|---|---|---|---|---|
+| `ranking_limit` | query | integer | não | Itens do ranking. |
+| `year` | query | integer \| null | não | Ano exato. |
+| `year_from` | query | integer \| null | não | Ano inicial. |
+| `year_to` | query | integer \| null | não | Ano final. |
+| `immunizer` | query | string \| null | não | Imunizante. |
+| `municipality_code` | query | list[string] \| null | não | Código(s) do município; repita o parâmetro. |
+| `deficit_class` | query | string \| null | não | Classe de déficit das linhas (baixo/moderado/alto). |
+
+| Código | Corpo |
+|---|---|
+| 200 | CoverageResponse |
+| 422 | HTTPValidationError |
+
+### GET `/api/v1/coverage/filters`
+
+Anos, imunizantes (se a coluna existir) e classes de déficit presentes nos dados.
+
+| Código | Corpo |
+|---|---|
+| 200 | CoverageFilterOptions |
+
+### GET `/api/v1/coverage/history`
+
+Evolução anual. Sem `municipality_code`, uma série agregada (`all`). Com um ou mais `municipality_code`, uma série por município (comparação).
+
+| Parâmetro | Em | Tipo | Obrigatório | Descrição |
+|---|---|---|---|---|
+| `year` | query | integer \| null | não | Ano exato. |
+| `year_from` | query | integer \| null | não | Ano inicial. |
+| `year_to` | query | integer \| null | não | Ano final. |
+| `immunizer` | query | string \| null | não | Imunizante. |
+| `municipality_code` | query | list[string] \| null | não | Código(s) do município; repita o parâmetro. |
+| `deficit_class` | query | string \| null | não | Classe de déficit das linhas (baixo/moderado/alto). |
+
+| Código | Corpo |
+|---|---|
+| 200 | CoverageHistoryResponse |
+| 422 | HTTPValidationError |
+
+### GET `/api/v1/municipalities`
+
+Agregação por município sobre as linhas filtradas, ordenada por nome/código. Usada pelo mapa e pelo ranking. Sem dataset, retorna `data_unavailable`.
+
+| Parâmetro | Em | Tipo | Obrigatório | Descrição |
+|---|---|---|---|---|
+| `limit` | query | integer | não |  |
+| `offset` | query | integer | não |  |
+| `year` | query | integer \| null | não | Ano exato. |
+| `year_from` | query | integer \| null | não | Ano inicial. |
+| `year_to` | query | integer \| null | não | Ano final. |
+| `immunizer` | query | string \| null | não | Imunizante. |
+| `municipality_code` | query | list[string] \| null | não | Código(s) do município; repita o parâmetro. |
+| `deficit_class` | query | string \| null | não | Classe de déficit das linhas (baixo/moderado/alto). |
+
+| Código | Corpo |
+|---|---|
+| 200 | MunicipalityListResponse |
+| 422 | HTTPValidationError |
+
+### GET `/api/v1/municipalities/{municipality_id}`
+
+Indicadores, histórico anual e resumo por imunizante do município (código).
+
+| Parâmetro | Em | Tipo | Obrigatório | Descrição |
+|---|---|---|---|---|
+| `municipality_id` | path | string | sim |  |
+| `year` | query | integer \| null | não | Ano exato. |
+| `year_from` | query | integer \| null | não | Ano inicial. |
+| `year_to` | query | integer \| null | não | Ano final. |
+| `immunizer` | query | string \| null | não | Imunizante. |
+| `municipality_code` | query | list[string] \| null | não | Código(s) do município; repita o parâmetro. |
+| `deficit_class` | query | string \| null | não | Classe de déficit das linhas (baixo/moderado/alto). |
+
+| Código | Corpo |
+|---|---|
+| 200 | MunicipalityDetailResponse |
+| 404 | ErrorResponse |
+| 422 | HTTPValidationError |
+
+### GET `/api/v1/predictions`
+
+Aplica o modelo treinado aos atributos do último ano sem rótulo (ou de `year`). `status` indica `model_unavailable` ou `data_unavailable` quando faltam artefatos.
+
+| Parâmetro | Em | Tipo | Obrigatório | Descrição |
+|---|---|---|---|---|
+| `year` | query | integer \| null | não | Ano dos atributos (origem). |
+| `municipality_code` | query | string \| null | não |  |
+| `immunizer` | query | string \| null | não |  |
+| `predicted_class` | query | string \| null | não | Filtra pela classe prevista. |
+| `limit` | query | integer | não |  |
+| `offset` | query | integer | não |  |
+
+| Código | Corpo |
+|---|---|
+| 200 | PredictionResponse |
+| 422 | HTTPValidationError |
+
+### GET `/api/v1/models`
+
+Relatório do último treino: alvo, atributos, divisão temporal, métricas por modelo (F1, precision, recall, matriz de confusão), baseline e importância das features. Retorna `not_trained` se o treino ainda não foi executado.
+
+| Código | Corpo |
+|---|---|
+| 200 | ModelResponse |
+
+### GET `/api/v1/data-quality`
+
+Status dos artefatos (bruto, processado, features, modelo, GeoJSON, população-alvo), qualidade do dataset de features (nulos, duplicatas, anos) e dependências pendentes.
+
+| Código | Corpo |
+|---|---|
+| 200 | DataQualityResponse |
+
+### GET `/api/v1/geo/municipalities`
+
+Entrega o GeoJSON configurado em `GEOJSON_PATH`. O projeto não inclui geometrias: sem o arquivo, retorna `data_unavailable`.
+
+| Código | Corpo |
+|---|---|
+| 200 | GeoResponse |
+
+## Schemas
+
+### ArtifactStatus
+
+| Campo | Tipo | Obrigatório | Descrição |
+|---|---|---|---|
+| `name` | string | sim |  |
+| `description` | string | sim |  |
+| `path` | string | sim | Caminho relativo à raiz do projeto. |
+| `exists` | boolean | sim |  |
+| `size_bytes` | integer \| null | não |  |
+
+### BaselineInfo
+
+| Campo | Tipo | Obrigatório | Descrição |
+|---|---|---|---|
+| `description` | string | sim |  |
+| `test` | ModelMetrics | sim |  |
+
+### ColumnQuality
+
+| Campo | Tipo | Obrigatório | Descrição |
+|---|---|---|---|
+| `name` | string | sim |  |
+| `null_count` | integer | sim |  |
+| `null_ratio` | number | sim |  |
+
+### CoverageFilterOptions
+
+| Campo | Tipo | Obrigatório | Descrição |
+|---|---|---|---|
+| `status` | `ok` \| `data_unavailable` | sim |  |
+| `message` | string \| null | não |  |
+| `years` | list[integer] | não |  |
+| `immunizers` | list[string] | não |  |
+| `deficit_classes` | list[string] | não |  |
+
+### CoverageHistoryPoint
+
+| Campo | Tipo | Obrigatório | Descrição |
+|---|---|---|---|
+| `year` | integer | sim |  |
+| `mean_coverage` | number \| null | sim |  |
+| `mean_deficit` | number \| null | sim |  |
+| `records` | integer | sim |  |
+
+### CoverageHistoryResponse
+
+| Campo | Tipo | Obrigatório | Descrição |
+|---|---|---|---|
+| `status` | `ok` \| `data_unavailable` | sim |  |
+| `message` | string \| null | não |  |
+| `series` | list[CoverageHistorySeries] | não |  |
+
+### CoverageHistorySeries
+
+| Campo | Tipo | Obrigatório | Descrição |
+|---|---|---|---|
+| `key` | string | sim | 'all' ou o código do município. |
+| `label` | string | sim |  |
+| `points` | list[CoverageHistoryPoint] | sim |  |
+
+### CoverageResponse
+
+| Campo | Tipo | Obrigatório | Descrição |
+|---|---|---|---|
+| `status` | `ok` \| `data_unavailable` | sim |  |
+| `message` | string \| null | não | Motivo quando não há dados. |
+| `summary` | CoverageSummary \| null | não |  |
+| `deficit_distribution` | list[DeficitDistributionItem] | não |  |
+| `top_deficit_municipalities` | list[MunicipalityRankingItem] | não |  |
+
+### CoverageSummary
+
+| Campo | Tipo | Obrigatório | Descrição |
+|---|---|---|---|
+| `records` | integer | sim | Linhas (município x imunizante x ano) consideradas. |
+| `municipalities` | integer | sim | Municípios distintos analisados. |
+| `mean_coverage` | number \| null | sim | Cobertura média (%) das linhas filtradas. |
+| `mean_deficit` | number \| null | sim | Déficit médio (p.p.) das linhas filtradas. |
+| `municipalities_below_target` | integer | sim | Municípios com déficit > 0. |
+| `critical_municipalities` | integer | sim | Municípios com classe de déficit 'alto'. |
+
+### DataQualityResponse
+
+| Campo | Tipo | Obrigatório | Descrição |
+|---|---|---|---|
+| `status` | `ok` \| `data_unavailable` | sim |  |
+| `artifacts` | list[ArtifactStatus] | sim |  |
+| `dataset` | DatasetQuality \| null | não |  |
+| `known_gaps` | list[string] | sim | Dependências ainda não atendidas. |
+
+### DatasetQuality
+
+| Campo | Tipo | Obrigatório | Descrição |
+|---|---|---|---|
+| `rows` | integer | sim |  |
+| `municipalities` | integer \| null | não |  |
+| `year_min` | integer \| null | não |  |
+| `year_max` | integer \| null | não |  |
+| `duplicate_rows` | integer | sim |  |
+| `missing_columns` | list[string] | sim | Colunas esperadas ausentes. |
+| `columns` | list[ColumnQuality] | sim |  |
+
+### DeficitDistributionItem
+
+| Campo | Tipo | Obrigatório | Descrição |
+|---|---|---|---|
+| `deficit_class` | string | sim |  |
+| `count` | integer | sim |  |
+
+### ErrorResponse
+
+| Campo | Tipo | Obrigatório | Descrição |
+|---|---|---|---|
+| `detail` | string | sim | Descrição do erro. |
+
+### FeatureImportanceItem
+
+| Campo | Tipo | Obrigatório | Descrição |
+|---|---|---|---|
+| `feature` | string | sim |  |
+| `importance` | number | sim |  |
+
+### GeoResponse
+
+| Campo | Tipo | Obrigatório | Descrição |
+|---|---|---|---|
+| `status` | `ok` \| `data_unavailable` | sim |  |
+| `message` | string \| null | não |  |
+| `code_property` | string \| null | não | Propriedade do GeoJSON com o código do município. |
+| `feature_count` | integer | não |  |
+| `geojson` | dict[str, any] \| null | não | FeatureCollection GeoJSON. |
+
+### HealthResponse
+
+| Campo | Tipo | Obrigatório | Descrição |
+|---|---|---|---|
+| `status` | string | sim | Estado do serviço. |
+| `app` | string | sim | Nome da aplicação. |
+| `version` | string | sim | Versão da API. |
+| `environment` | string | sim | Ambiente de execução. |
+
+### ImmunizerSummary
+
+| Campo | Tipo | Obrigatório | Descrição |
+|---|---|---|---|
+| `immunizer` | string | sim |  |
+| `mean_coverage` | number \| null | sim |  |
+| `mean_deficit` | number \| null | sim |  |
+
+### ModelEntry
+
+| Campo | Tipo | Obrigatório | Descrição |
+|---|---|---|---|
+| `name` | string | sim |  |
+| `is_best` | boolean | sim |  |
+| `validation` | ModelMetrics \| null | não |  |
+| `test` | ModelMetrics | sim |  |
+
+### ModelMetrics
+
+| Campo | Tipo | Obrigatório | Descrição |
+|---|---|---|---|
+| `accuracy` | number | sim |  |
+| `precision_macro` | number | sim |  |
+| `precision_weighted` | number | sim |  |
+| `recall_macro` | number | sim |  |
+| `recall_weighted` | number | sim |  |
+| `f1_macro` | number | sim |  |
+| `f1_weighted` | number | sim |  |
+| `confusion_matrix` | list[list[integer]] | sim | Linhas = real, colunas = previsto. |
+
+### ModelResponse
+
+| Campo | Tipo | Obrigatório | Descrição |
+|---|---|---|---|
+| `status` | `ok` \| `not_trained` | sim |  |
+| `message` | string \| null | não |  |
+| `generated_at` | string \| null | não |  |
+| `target` | string \| null | não |  |
+| `features` | list[string] | não |  |
+| `classes` | list[string] | não |  |
+| `split` | SplitInfo \| null | não |  |
+| `selection` | SelectionInfo \| null | não |  |
+| `best_model` | string \| null | não |  |
+| `models` | list[ModelEntry] | não |  |
+| `baseline` | BaselineInfo \| null | não |  |
+| `feature_importance` | list[FeatureImportanceItem] | não |  |
+
+### MunicipalityDetailResponse
+
+| Campo | Tipo | Obrigatório | Descrição |
+|---|---|---|---|
+| `municipality` | MunicipalityItem | sim |  |
+| `history` | list[CoverageHistoryPoint] | sim |  |
+| `by_immunizer` | list[ImmunizerSummary] | não |  |
+
+### MunicipalityItem
+
+| Campo | Tipo | Obrigatório | Descrição |
+|---|---|---|---|
+| `municipality_code` | string | sim |  |
+| `municipality_name` | string \| null | não |  |
+| `mean_coverage` | number \| null | sim |  |
+| `mean_deficit` | number \| null | sim |  |
+| `deficit_class` | string \| null | não | Classe calculada sobre o déficit médio. |
+| `records` | integer | sim |  |
+
+### MunicipalityListResponse
+
+| Campo | Tipo | Obrigatório | Descrição |
+|---|---|---|---|
+| `status` | `ok` \| `data_unavailable` | sim |  |
+| `message` | string \| null | não |  |
+| `total` | integer | não |  |
+| `limit` | integer | sim |  |
+| `offset` | integer | sim |  |
+| `items` | list[MunicipalityItem] | não |  |
+
+### MunicipalityRankingItem
+
+| Campo | Tipo | Obrigatório | Descrição |
+|---|---|---|---|
+| `municipality_code` | string | sim |  |
+| `municipality_name` | string \| null | não |  |
+| `mean_coverage` | number \| null | sim |  |
+| `mean_deficit` | number \| null | sim |  |
+
+### PredictionItem
+
+| Campo | Tipo | Obrigatório | Descrição |
+|---|---|---|---|
+| `municipality_code` | string | sim |  |
+| `municipality_name` | string \| null | não |  |
+| `immunizer` | string \| null | não |  |
+| `source_year` | integer | sim | Ano dos atributos usados na predição. |
+| `predicted_class` | string | sim | Classe de déficit prevista para o ano seguinte. |
+| `probabilities` | dict[str, number] \| null | não | Probabilidade por classe, se o modelo as fornece. |
+
+### PredictionResponse
+
+| Campo | Tipo | Obrigatório | Descrição |
+|---|---|---|---|
+| `status` | `ok` \| `model_unavailable` \| `data_unavailable` | sim |  |
+| `message` | string \| null | não |  |
+| `model_name` | string \| null | não |  |
+| `source_year` | integer \| null | não |  |
+| `target_year` | integer \| null | não |  |
+| `total` | integer | não |  |
+| `class_distribution` | dict[str, integer] | não |  |
+| `items` | list[PredictionItem] | não |  |
+
+### SelectionInfo
+
+| Campo | Tipo | Obrigatório | Descrição |
+|---|---|---|---|
+| `criterion` | string | sim |  |
+| `split` | string | sim |  |
+| `note` | string \| null | não |  |
+
+### SplitInfo
+
+| Campo | Tipo | Obrigatório | Descrição |
+|---|---|---|---|
+| `scheme` | string | sim |  |
+| `train_years` | list[integer] | sim |  |
+| `validation_year` | integer \| null | não |  |
+| `test_year` | integer | sim |  |
+| `n_train` | integer | sim |  |
+| `n_validation` | integer | sim |  |
+| `n_test` | integer | sim |  |

@@ -1,0 +1,2219 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Vax Coverage SP Analytics API",
+    "description": "API do dashboard de cobertura vacinal do Estado de São Paulo (PI IV - UNIVESP). Os contratos abaixo são a fonte de verdade da API.",
+    "version": "0.1.0"
+  },
+  "paths": {
+    "/api/v1/health": {
+      "get": {
+        "tags": [
+          "health"
+        ],
+        "summary": "Verifica o estado da API",
+        "description": "Retorna `ok` quando o serviço está em execução. Não consulta os dados.",
+        "operationId": "health_api_v1_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/coverage": {
+      "get": {
+        "tags": [
+          "coverage"
+        ],
+        "summary": "Indicadores de cobertura e déficit",
+        "description": "KPIs agregados (cobertura média, déficit médio, municípios abaixo da meta e críticos), distribuição por classe de déficit e ranking de municípios com maior déficit médio. Médias simples sobre as linhas filtradas. Sem dataset, retorna `data_unavailable`.",
+        "operationId": "get_coverage_api_v1_coverage_get",
+        "parameters": [
+          {
+            "name": "ranking_limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "description": "Itens do ranking.",
+              "default": 10,
+              "title": "Ranking Limit"
+            },
+            "description": "Itens do ranking."
+          },
+          {
+            "name": "year",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "maximum": 2100,
+                  "minimum": 1900
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Ano exato.",
+              "title": "Year"
+            },
+            "description": "Ano exato."
+          },
+          {
+            "name": "year_from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "maximum": 2100,
+                  "minimum": 1900
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Ano inicial.",
+              "title": "Year From"
+            },
+            "description": "Ano inicial."
+          },
+          {
+            "name": "year_to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "maximum": 2100,
+                  "minimum": 1900
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Ano final.",
+              "title": "Year To"
+            },
+            "description": "Ano final."
+          },
+          {
+            "name": "immunizer",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Imunizante.",
+              "title": "Immunizer"
+            },
+            "description": "Imunizante."
+          },
+          {
+            "name": "municipality_code",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Código(s) do município; repita o parâmetro.",
+              "title": "Municipality Code"
+            },
+            "description": "Código(s) do município; repita o parâmetro."
+          },
+          {
+            "name": "deficit_class",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Classe de déficit das linhas (baixo/moderado/alto).",
+              "title": "Deficit Class"
+            },
+            "description": "Classe de déficit das linhas (baixo/moderado/alto)."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CoverageResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/coverage/filters": {
+      "get": {
+        "tags": [
+          "coverage"
+        ],
+        "summary": "Valores disponíveis para os filtros",
+        "description": "Anos, imunizantes (se a coluna existir) e classes de déficit presentes nos dados.",
+        "operationId": "get_filters_api_v1_coverage_filters_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CoverageFilterOptions"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/coverage/history": {
+      "get": {
+        "tags": [
+          "coverage"
+        ],
+        "summary": "Série histórica de cobertura e déficit",
+        "description": "Evolução anual. Sem `municipality_code`, uma série agregada (`all`). Com um ou mais `municipality_code`, uma série por município (comparação).",
+        "operationId": "get_history_api_v1_coverage_history_get",
+        "parameters": [
+          {
+            "name": "year",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "maximum": 2100,
+                  "minimum": 1900
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Ano exato.",
+              "title": "Year"
+            },
+            "description": "Ano exato."
+          },
+          {
+            "name": "year_from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "maximum": 2100,
+                  "minimum": 1900
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Ano inicial.",
+              "title": "Year From"
+            },
+            "description": "Ano inicial."
+          },
+          {
+            "name": "year_to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "maximum": 2100,
+                  "minimum": 1900
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Ano final.",
+              "title": "Year To"
+            },
+            "description": "Ano final."
+          },
+          {
+            "name": "immunizer",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Imunizante.",
+              "title": "Immunizer"
+            },
+            "description": "Imunizante."
+          },
+          {
+            "name": "municipality_code",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Código(s) do município; repita o parâmetro.",
+              "title": "Municipality Code"
+            },
+            "description": "Código(s) do município; repita o parâmetro."
+          },
+          {
+            "name": "deficit_class",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Classe de déficit das linhas (baixo/moderado/alto).",
+              "title": "Deficit Class"
+            },
+            "description": "Classe de déficit das linhas (baixo/moderado/alto)."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CoverageHistoryResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/municipalities": {
+      "get": {
+        "tags": [
+          "municipalities"
+        ],
+        "summary": "Lista municípios com cobertura e déficit médios",
+        "description": "Agregação por município sobre as linhas filtradas, ordenada por nome/código. Usada pelo mapa e pelo ranking. Sem dataset, retorna `data_unavailable`.",
+        "operationId": "list_municipalities_api_v1_municipalities_get",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 1000,
+              "minimum": 1,
+              "default": 100,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0,
+              "title": "Offset"
+            }
+          },
+          {
+            "name": "year",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "maximum": 2100,
+                  "minimum": 1900
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Ano exato.",
+              "title": "Year"
+            },
+            "description": "Ano exato."
+          },
+          {
+            "name": "year_from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "maximum": 2100,
+                  "minimum": 1900
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Ano inicial.",
+              "title": "Year From"
+            },
+            "description": "Ano inicial."
+          },
+          {
+            "name": "year_to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "maximum": 2100,
+                  "minimum": 1900
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Ano final.",
+              "title": "Year To"
+            },
+            "description": "Ano final."
+          },
+          {
+            "name": "immunizer",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Imunizante.",
+              "title": "Immunizer"
+            },
+            "description": "Imunizante."
+          },
+          {
+            "name": "municipality_code",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Código(s) do município; repita o parâmetro.",
+              "title": "Municipality Code"
+            },
+            "description": "Código(s) do município; repita o parâmetro."
+          },
+          {
+            "name": "deficit_class",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Classe de déficit das linhas (baixo/moderado/alto).",
+              "title": "Deficit Class"
+            },
+            "description": "Classe de déficit das linhas (baixo/moderado/alto)."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MunicipalityListResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/municipalities/{municipality_id}": {
+      "get": {
+        "tags": [
+          "municipalities"
+        ],
+        "summary": "Detalhe de um município",
+        "description": "Indicadores, histórico anual e resumo por imunizante do município (código).",
+        "operationId": "get_municipality_api_v1_municipalities__municipality_id__get",
+        "parameters": [
+          {
+            "name": "municipality_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Municipality Id"
+            }
+          },
+          {
+            "name": "year",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "maximum": 2100,
+                  "minimum": 1900
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Ano exato.",
+              "title": "Year"
+            },
+            "description": "Ano exato."
+          },
+          {
+            "name": "year_from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "maximum": 2100,
+                  "minimum": 1900
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Ano inicial.",
+              "title": "Year From"
+            },
+            "description": "Ano inicial."
+          },
+          {
+            "name": "year_to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "maximum": 2100,
+                  "minimum": 1900
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Ano final.",
+              "title": "Year To"
+            },
+            "description": "Ano final."
+          },
+          {
+            "name": "immunizer",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Imunizante.",
+              "title": "Immunizer"
+            },
+            "description": "Imunizante."
+          },
+          {
+            "name": "municipality_code",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Código(s) do município; repita o parâmetro.",
+              "title": "Municipality Code"
+            },
+            "description": "Código(s) do município; repita o parâmetro."
+          },
+          {
+            "name": "deficit_class",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Classe de déficit das linhas (baixo/moderado/alto).",
+              "title": "Deficit Class"
+            },
+            "description": "Classe de déficit das linhas (baixo/moderado/alto)."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MunicipalityDetailResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Município sem registros.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/predictions": {
+      "get": {
+        "tags": [
+          "predictions"
+        ],
+        "summary": "Classe de déficit prevista para o ano seguinte",
+        "description": "Aplica o modelo treinado aos atributos do último ano sem rótulo (ou de `year`). `status` indica `model_unavailable` ou `data_unavailable` quando faltam artefatos.",
+        "operationId": "get_predictions_api_v1_predictions_get",
+        "parameters": [
+          {
+            "name": "year",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Ano dos atributos (origem).",
+              "title": "Year"
+            },
+            "description": "Ano dos atributos (origem)."
+          },
+          {
+            "name": "municipality_code",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Municipality Code"
+            }
+          },
+          {
+            "name": "immunizer",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Immunizer"
+            }
+          },
+          {
+            "name": "predicted_class",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filtra pela classe prevista.",
+              "title": "Predicted Class"
+            },
+            "description": "Filtra pela classe prevista."
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 1000,
+              "minimum": 1,
+              "default": 100,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0,
+              "title": "Offset"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PredictionResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/models": {
+      "get": {
+        "tags": [
+          "models"
+        ],
+        "summary": "Avaliação dos modelos treinados",
+        "description": "Relatório do último treino: alvo, atributos, divisão temporal, métricas por modelo (F1, precision, recall, matriz de confusão), baseline e importância das features. Retorna `not_trained` se o treino ainda não foi executado.",
+        "operationId": "get_models_api_v1_models_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModelResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/data-quality": {
+      "get": {
+        "tags": [
+          "data-quality"
+        ],
+        "summary": "Qualidade dos dados e lacunas conhecidas",
+        "description": "Status dos artefatos (bruto, processado, features, modelo, GeoJSON, população-alvo), qualidade do dataset de features (nulos, duplicatas, anos) e dependências pendentes.",
+        "operationId": "get_data_quality_api_v1_data_quality_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DataQualityResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/geo/municipalities": {
+      "get": {
+        "tags": [
+          "geo"
+        ],
+        "summary": "GeoJSON dos municípios de São Paulo",
+        "description": "Entrega o GeoJSON configurado em `GEOJSON_PATH`. O projeto não inclui geometrias: sem o arquivo, retorna `data_unavailable`.",
+        "operationId": "get_geo_municipalities_api_v1_geo_municipalities_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GeoResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "ArtifactStatus": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description"
+          },
+          "path": {
+            "type": "string",
+            "title": "Path",
+            "description": "Caminho relativo à raiz do projeto."
+          },
+          "exists": {
+            "type": "boolean",
+            "title": "Exists"
+          },
+          "size_bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Size Bytes"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "description",
+          "path",
+          "exists"
+        ],
+        "title": "ArtifactStatus"
+      },
+      "BaselineInfo": {
+        "properties": {
+          "description": {
+            "type": "string",
+            "title": "Description"
+          },
+          "test": {
+            "$ref": "#/components/schemas/ModelMetrics"
+          }
+        },
+        "type": "object",
+        "required": [
+          "description",
+          "test"
+        ],
+        "title": "BaselineInfo"
+      },
+      "ColumnQuality": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "null_count": {
+            "type": "integer",
+            "title": "Null Count"
+          },
+          "null_ratio": {
+            "type": "number",
+            "title": "Null Ratio"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "null_count",
+          "null_ratio"
+        ],
+        "title": "ColumnQuality"
+      },
+      "CoverageFilterOptions": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "ok",
+              "data_unavailable"
+            ],
+            "title": "Status"
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message"
+          },
+          "years": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Years"
+          },
+          "immunizers": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Immunizers"
+          },
+          "deficit_classes": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Deficit Classes"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "title": "CoverageFilterOptions"
+      },
+      "CoverageHistoryPoint": {
+        "properties": {
+          "year": {
+            "type": "integer",
+            "title": "Year"
+          },
+          "mean_coverage": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mean Coverage"
+          },
+          "mean_deficit": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mean Deficit"
+          },
+          "records": {
+            "type": "integer",
+            "title": "Records"
+          }
+        },
+        "type": "object",
+        "required": [
+          "year",
+          "mean_coverage",
+          "mean_deficit",
+          "records"
+        ],
+        "title": "CoverageHistoryPoint"
+      },
+      "CoverageHistoryResponse": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "ok",
+              "data_unavailable"
+            ],
+            "title": "Status"
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message"
+          },
+          "series": {
+            "items": {
+              "$ref": "#/components/schemas/CoverageHistorySeries"
+            },
+            "type": "array",
+            "title": "Series"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "title": "CoverageHistoryResponse"
+      },
+      "CoverageHistorySeries": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key",
+            "description": "'all' ou o código do município."
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "points": {
+            "items": {
+              "$ref": "#/components/schemas/CoverageHistoryPoint"
+            },
+            "type": "array",
+            "title": "Points"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "label",
+          "points"
+        ],
+        "title": "CoverageHistorySeries"
+      },
+      "CoverageResponse": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "ok",
+              "data_unavailable"
+            ],
+            "title": "Status"
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message",
+            "description": "Motivo quando não há dados."
+          },
+          "summary": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CoverageSummary"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "deficit_distribution": {
+            "items": {
+              "$ref": "#/components/schemas/DeficitDistributionItem"
+            },
+            "type": "array",
+            "title": "Deficit Distribution"
+          },
+          "top_deficit_municipalities": {
+            "items": {
+              "$ref": "#/components/schemas/MunicipalityRankingItem"
+            },
+            "type": "array",
+            "title": "Top Deficit Municipalities"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "title": "CoverageResponse"
+      },
+      "CoverageSummary": {
+        "properties": {
+          "records": {
+            "type": "integer",
+            "title": "Records",
+            "description": "Linhas (município x imunizante x ano) consideradas."
+          },
+          "municipalities": {
+            "type": "integer",
+            "title": "Municipalities",
+            "description": "Municípios distintos analisados."
+          },
+          "mean_coverage": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mean Coverage",
+            "description": "Cobertura média (%) das linhas filtradas."
+          },
+          "mean_deficit": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mean Deficit",
+            "description": "Déficit médio (p.p.) das linhas filtradas."
+          },
+          "municipalities_below_target": {
+            "type": "integer",
+            "title": "Municipalities Below Target",
+            "description": "Municípios com déficit > 0."
+          },
+          "critical_municipalities": {
+            "type": "integer",
+            "title": "Critical Municipalities",
+            "description": "Municípios com classe de déficit 'alto'."
+          }
+        },
+        "type": "object",
+        "required": [
+          "records",
+          "municipalities",
+          "mean_coverage",
+          "mean_deficit",
+          "municipalities_below_target",
+          "critical_municipalities"
+        ],
+        "title": "CoverageSummary"
+      },
+      "DataQualityResponse": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "ok",
+              "data_unavailable"
+            ],
+            "title": "Status"
+          },
+          "artifacts": {
+            "items": {
+              "$ref": "#/components/schemas/ArtifactStatus"
+            },
+            "type": "array",
+            "title": "Artifacts"
+          },
+          "dataset": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DatasetQuality"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "known_gaps": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Known Gaps",
+            "description": "Dependências ainda não atendidas."
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "artifacts",
+          "known_gaps"
+        ],
+        "title": "DataQualityResponse"
+      },
+      "DatasetQuality": {
+        "properties": {
+          "rows": {
+            "type": "integer",
+            "title": "Rows"
+          },
+          "municipalities": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Municipalities"
+          },
+          "year_min": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Year Min"
+          },
+          "year_max": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Year Max"
+          },
+          "duplicate_rows": {
+            "type": "integer",
+            "title": "Duplicate Rows"
+          },
+          "missing_columns": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Missing Columns",
+            "description": "Colunas esperadas ausentes."
+          },
+          "columns": {
+            "items": {
+              "$ref": "#/components/schemas/ColumnQuality"
+            },
+            "type": "array",
+            "title": "Columns"
+          }
+        },
+        "type": "object",
+        "required": [
+          "rows",
+          "duplicate_rows",
+          "missing_columns",
+          "columns"
+        ],
+        "title": "DatasetQuality"
+      },
+      "DeficitDistributionItem": {
+        "properties": {
+          "deficit_class": {
+            "type": "string",
+            "title": "Deficit Class"
+          },
+          "count": {
+            "type": "integer",
+            "title": "Count"
+          }
+        },
+        "type": "object",
+        "required": [
+          "deficit_class",
+          "count"
+        ],
+        "title": "DeficitDistributionItem"
+      },
+      "ErrorResponse": {
+        "properties": {
+          "detail": {
+            "type": "string",
+            "title": "Detail",
+            "description": "Descrição do erro.",
+            "examples": [
+              "Município não encontrado."
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "detail"
+        ],
+        "title": "ErrorResponse"
+      },
+      "FeatureImportanceItem": {
+        "properties": {
+          "feature": {
+            "type": "string",
+            "title": "Feature"
+          },
+          "importance": {
+            "type": "number",
+            "title": "Importance"
+          }
+        },
+        "type": "object",
+        "required": [
+          "feature",
+          "importance"
+        ],
+        "title": "FeatureImportanceItem"
+      },
+      "GeoResponse": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "ok",
+              "data_unavailable"
+            ],
+            "title": "Status"
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message"
+          },
+          "code_property": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Code Property",
+            "description": "Propriedade do GeoJSON com o código do município."
+          },
+          "feature_count": {
+            "type": "integer",
+            "title": "Feature Count",
+            "default": 0
+          },
+          "geojson": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Geojson",
+            "description": "FeatureCollection GeoJSON."
+          }
+        },
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "title": "GeoResponse"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "HealthResponse": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "const": "ok",
+            "title": "Status",
+            "description": "Estado do serviço."
+          },
+          "app": {
+            "type": "string",
+            "title": "App",
+            "description": "Nome da aplicação."
+          },
+          "version": {
+            "type": "string",
+            "title": "Version",
+            "description": "Versão da API."
+          },
+          "environment": {
+            "type": "string",
+            "title": "Environment",
+            "description": "Ambiente de execução."
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "app",
+          "version",
+          "environment"
+        ],
+        "title": "HealthResponse"
+      },
+      "ImmunizerSummary": {
+        "properties": {
+          "immunizer": {
+            "type": "string",
+            "title": "Immunizer"
+          },
+          "mean_coverage": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mean Coverage"
+          },
+          "mean_deficit": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mean Deficit"
+          }
+        },
+        "type": "object",
+        "required": [
+          "immunizer",
+          "mean_coverage",
+          "mean_deficit"
+        ],
+        "title": "ImmunizerSummary"
+      },
+      "ModelEntry": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "is_best": {
+            "type": "boolean",
+            "title": "Is Best"
+          },
+          "validation": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ModelMetrics"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "test": {
+            "$ref": "#/components/schemas/ModelMetrics"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "is_best",
+          "test"
+        ],
+        "title": "ModelEntry"
+      },
+      "ModelMetrics": {
+        "properties": {
+          "accuracy": {
+            "type": "number",
+            "title": "Accuracy"
+          },
+          "precision_macro": {
+            "type": "number",
+            "title": "Precision Macro"
+          },
+          "precision_weighted": {
+            "type": "number",
+            "title": "Precision Weighted"
+          },
+          "recall_macro": {
+            "type": "number",
+            "title": "Recall Macro"
+          },
+          "recall_weighted": {
+            "type": "number",
+            "title": "Recall Weighted"
+          },
+          "f1_macro": {
+            "type": "number",
+            "title": "F1 Macro"
+          },
+          "f1_weighted": {
+            "type": "number",
+            "title": "F1 Weighted"
+          },
+          "confusion_matrix": {
+            "items": {
+              "items": {
+                "type": "integer"
+              },
+              "type": "array"
+            },
+            "type": "array",
+            "title": "Confusion Matrix",
+            "description": "Linhas = real, colunas = previsto."
+          }
+        },
+        "type": "object",
+        "required": [
+          "accuracy",
+          "precision_macro",
+          "precision_weighted",
+          "recall_macro",
+          "recall_weighted",
+          "f1_macro",
+          "f1_weighted",
+          "confusion_matrix"
+        ],
+        "title": "ModelMetrics"
+      },
+      "ModelResponse": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "ok",
+              "not_trained"
+            ],
+            "title": "Status"
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message"
+          },
+          "generated_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Generated At"
+          },
+          "target": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target"
+          },
+          "features": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Features"
+          },
+          "classes": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Classes"
+          },
+          "split": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SplitInfo"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "selection": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SelectionInfo"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "best_model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Best Model"
+          },
+          "models": {
+            "items": {
+              "$ref": "#/components/schemas/ModelEntry"
+            },
+            "type": "array",
+            "title": "Models"
+          },
+          "baseline": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BaselineInfo"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "feature_importance": {
+            "items": {
+              "$ref": "#/components/schemas/FeatureImportanceItem"
+            },
+            "type": "array",
+            "title": "Feature Importance"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "title": "ModelResponse"
+      },
+      "MunicipalityDetailResponse": {
+        "properties": {
+          "municipality": {
+            "$ref": "#/components/schemas/MunicipalityItem"
+          },
+          "history": {
+            "items": {
+              "$ref": "#/components/schemas/CoverageHistoryPoint"
+            },
+            "type": "array",
+            "title": "History"
+          },
+          "by_immunizer": {
+            "items": {
+              "$ref": "#/components/schemas/ImmunizerSummary"
+            },
+            "type": "array",
+            "title": "By Immunizer"
+          }
+        },
+        "type": "object",
+        "required": [
+          "municipality",
+          "history"
+        ],
+        "title": "MunicipalityDetailResponse"
+      },
+      "MunicipalityItem": {
+        "properties": {
+          "municipality_code": {
+            "type": "string",
+            "title": "Municipality Code"
+          },
+          "municipality_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Municipality Name"
+          },
+          "mean_coverage": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mean Coverage"
+          },
+          "mean_deficit": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mean Deficit"
+          },
+          "deficit_class": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deficit Class",
+            "description": "Classe calculada sobre o déficit médio."
+          },
+          "records": {
+            "type": "integer",
+            "title": "Records"
+          }
+        },
+        "type": "object",
+        "required": [
+          "municipality_code",
+          "mean_coverage",
+          "mean_deficit",
+          "records"
+        ],
+        "title": "MunicipalityItem"
+      },
+      "MunicipalityListResponse": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "ok",
+              "data_unavailable"
+            ],
+            "title": "Status"
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total",
+            "default": 0
+          },
+          "limit": {
+            "type": "integer",
+            "title": "Limit"
+          },
+          "offset": {
+            "type": "integer",
+            "title": "Offset"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/MunicipalityItem"
+            },
+            "type": "array",
+            "title": "Items"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "limit",
+          "offset"
+        ],
+        "title": "MunicipalityListResponse"
+      },
+      "MunicipalityRankingItem": {
+        "properties": {
+          "municipality_code": {
+            "type": "string",
+            "title": "Municipality Code"
+          },
+          "municipality_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Municipality Name"
+          },
+          "mean_coverage": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mean Coverage"
+          },
+          "mean_deficit": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mean Deficit"
+          }
+        },
+        "type": "object",
+        "required": [
+          "municipality_code",
+          "mean_coverage",
+          "mean_deficit"
+        ],
+        "title": "MunicipalityRankingItem"
+      },
+      "PredictionItem": {
+        "properties": {
+          "municipality_code": {
+            "type": "string",
+            "title": "Municipality Code"
+          },
+          "municipality_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Municipality Name"
+          },
+          "immunizer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Immunizer"
+          },
+          "source_year": {
+            "type": "integer",
+            "title": "Source Year",
+            "description": "Ano dos atributos usados na predição."
+          },
+          "predicted_class": {
+            "type": "string",
+            "title": "Predicted Class",
+            "description": "Classe de déficit prevista para o ano seguinte."
+          },
+          "probabilities": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "number"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Probabilities",
+            "description": "Probabilidade por classe, se o modelo as fornece."
+          }
+        },
+        "type": "object",
+        "required": [
+          "municipality_code",
+          "source_year",
+          "predicted_class"
+        ],
+        "title": "PredictionItem"
+      },
+      "PredictionResponse": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "ok",
+              "model_unavailable",
+              "data_unavailable"
+            ],
+            "title": "Status"
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message"
+          },
+          "model_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Name"
+          },
+          "source_year": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Year"
+          },
+          "target_year": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Year"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total",
+            "default": 0
+          },
+          "class_distribution": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Class Distribution"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/PredictionItem"
+            },
+            "type": "array",
+            "title": "Items"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "title": "PredictionResponse"
+      },
+      "SelectionInfo": {
+        "properties": {
+          "criterion": {
+            "type": "string",
+            "title": "Criterion"
+          },
+          "split": {
+            "type": "string",
+            "title": "Split"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          }
+        },
+        "type": "object",
+        "required": [
+          "criterion",
+          "split"
+        ],
+        "title": "SelectionInfo"
+      },
+      "SplitInfo": {
+        "properties": {
+          "scheme": {
+            "type": "string",
+            "title": "Scheme"
+          },
+          "train_years": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Train Years"
+          },
+          "validation_year": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Validation Year"
+          },
+          "test_year": {
+            "type": "integer",
+            "title": "Test Year"
+          },
+          "n_train": {
+            "type": "integer",
+            "title": "N Train"
+          },
+          "n_validation": {
+            "type": "integer",
+            "title": "N Validation"
+          },
+          "n_test": {
+            "type": "integer",
+            "title": "N Test"
+          }
+        },
+        "type": "object",
+        "required": [
+          "scheme",
+          "train_years",
+          "test_year",
+          "n_train",
+          "n_validation",
+          "n_test"
+        ],
+        "title": "SplitInfo"
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      }
+    }
+  }
+}
