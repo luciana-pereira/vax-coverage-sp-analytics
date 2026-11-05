@@ -1,0 +1,33 @@
+# Pilha completa em contêineres: docker compose up --build
+# O pipeline e o treino rodam fora (ver README); os dados são montados de ./data.
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    environment:
+      APP_ENV: docker
+      DATA_DIR: /app/data
+      CORS_ORIGINS: http://localhost:4200
+    volumes:
+      - ./data:/app/data:ro
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v1/health')"
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  frontend:
+    build:
+      context: frontend
+    ports:
+      - "4200:80"
+    depends_on:
+      backend:
+        condition: service_healthy

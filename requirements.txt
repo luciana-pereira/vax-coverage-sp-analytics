@@ -1,0 +1,5 @@
+﻿# Ambiente de desenvolvimento completo (Python).
+-r backend/requirements.txt
+-r pipeline/requirements.txt
+-r ml/requirements.txt
+-r requirements-dev.txt
