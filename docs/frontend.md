@@ -2,6 +2,8 @@
 
 Este documento descreve a aplicação web em `frontend/`, suas rotas, integração com a API, visualizações e processo de build. Para os contratos REST e o pipeline de dados, consulte [backend e ML](backend.md) e [endpoints](api/endpoints.md).
 
+Aplicação de produção: [Vax Coverage SP Analytics](https://vax-coverage-sp-analytics-92no9wuto-lucianapereiras-projects.vercel.app). O acesso pode exigir autenticação, conforme a proteção configurada no deployment.
+
 ## 1. Arquitetura SPA
 
 O frontend é uma **single-page application (SPA)** em Angular 19 e TypeScript, com componentes standalone, signals e carregamento das páginas sob demanda por `loadComponent`. O Angular Router troca o conteúdo do `router-outlet` sem substituir o shell compartilhado. O projeto usa SCSS para estilos globais, Chart.js para gráficos e d3-geo para projeção geográfica.
@@ -31,7 +33,7 @@ frontend/src/
 
 O `ShellComponent` mantém a navegação e envolve o cabeçalho e o `router-outlet` em `<main>`. Os serviços em `core/services` comunicam-se com a API via `ApiClient`; componentes não acessam diretamente DuckDB ou Parquet. Os estados de carregamento, erro, ausência de dados e resultados vazios são apresentados explicitamente.
 
-O `errorInterceptor` converte falhas HTTP em mensagens de erro legíveis. Os helpers `loadOnChange` e `loadOnce` administram estados assíncronos, e `core/models/api.models.ts` define os tipos usados para as respostas da API.
+O `errorInterceptor` converte falhas HTTP em mensagens de erro legíveis e estabelece um limite de 90 segundos entre eventos da requisição. Os helpers `loadOnChange` e `loadOnce` administram estados assíncronos, e `core/models/api.models.ts` define os tipos usados para as respostas da API.
 
 ### Rotas
 
@@ -49,17 +51,9 @@ A rota vazia e caminhos desconhecidos redirecionam para `/dashboard`. As página
 
 ### Configuração e comunicação
 
-`src/environments/environment.ts` define `apiBaseUrl` para produção; `environment.development.ts` é usado pelo servidor de desenvolvimento. Ambos usam `http://localhost:8000/api/v1` por padrão, inclusive no build local e no Docker. Na Vercel, o build substitui o valor de produção pela variável `API_BASE_URL`. O valor é injetado pelo token Angular `API_BASE_URL` em `app.config.ts`.
+`src/environments/environment.ts` define `apiBaseUrl` para produção; `environment.development.ts` é usado pelo servidor de desenvolvimento. Ambos usam `http://localhost:8000/api/v1` por padrão, inclusive no build local e no Docker. O valor é injetado pelo token Angular `API_BASE_URL` em `app.config.ts`.
 
-Para implantação, configure a URL acessível **pelo navegador do usuário** antes do build. `localhost` em um navegador remoto aponta para a máquina do usuário, não para o servidor da aplicação. Quando frontend e API têm origens diferentes, configure `CORS_ORIGINS` no backend. A API permite GET e POST cross-origin para as origens configuradas. Veja as [instruções para o Render](backend.md#6-deploy-do-backend-no-render).
-
-### Deploy na Vercel
-
-1. Importe o repositório na Vercel e defina **Root Directory** como `frontend`.
-2. Em **Environment Variables**, configure `API_BASE_URL` com a URL HTTPS pública do backend Render, incluindo o prefixo da API, por exemplo `https://seu-backend.onrender.com/api/v1`. Configure-a nos ambientes de produção e preview que forem utilizados.
-3. O `frontend/vercel.json` define `npm run build:vercel`, a saída `dist/frontend/browser` e o fallback para `index.html` nas rotas da SPA. O build falha com mensagem explícita se a URL estiver ausente ou for inválida. O comando comum `npm run build` continua produzindo o mesmo diretório com a configuração local.
-4. No Render, inclua a origem HTTPS exata do frontend em `CORS_ORIGINS`, sem caminho nem barra final. Para previews, inclua as origens necessárias ou consulte a opção de wildcard documentada no backend.
-5. Após alterar `API_BASE_URL`, faça um novo deploy: o valor é incorporado ao JavaScript durante o build, é público e não deve conter credenciais ou segredos. Teste o acesso direto às rotas e as chamadas à API depois do deploy.
+Quando frontend e API têm origens diferentes, configure `CORS_ORIGINS` no backend. A API permite GET, POST, PUT, DELETE e OPTIONS cross-origin para as origens configuradas.
 
 Os serviços incluem `CoverageService`, `MunicipalitiesService`, `PredictionsService`, `ModelsService`, `DataQualityService`, `GeoService` e `VaccinationAnalyticsService`. O `FilterStore` compartilha filtros de cobertura; o painel de análises agregadas mantém filtros próprios e usa `VaccinationAnalyticsSession` para armazenar o token temporário do CSV.
 
