@@ -37,7 +37,6 @@ def make_processed_frame(n_municipalities: int = 24, years: list[int] = YEARS) -
     for m in range(n_municipalities):
         base = 60 + (m % 4) * 15
         for immunizer in ("VAC_A", "VAC_B"):
-            offset = 0
             for step, year in enumerate(years):
                 ratio = np.clip(base + step * 0.8, 40, 120) / 100
                 population = int(rng.integers(500, 5000))
