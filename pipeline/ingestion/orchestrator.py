@@ -5,6 +5,7 @@ from .models import IngestionRequest
 from .pni import build_pni_source
 from .processor import process_pni_files
 
+
 class IngestionOrchestrator:
     """Orquestra a aquisição dos dados do PNI."""
 
