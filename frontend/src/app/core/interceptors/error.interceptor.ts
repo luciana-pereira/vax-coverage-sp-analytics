@@ -1,7 +1,11 @@
 import { HttpErrorResponse, HttpInterceptorFn } from '@angular/common/http';
-import { TimeoutError, catchError, throwError, timeout } from 'rxjs';
+import { inject } from '@angular/core';
+import { TimeoutError, catchError, retry, throwError, timeout, timer } from 'rxjs';
+
+import { API_BASE_URL } from '../config/api-config';
 
 export const API_REQUEST_TIMEOUT_MS = 90_000;
+export const API_RETRY_DELAY_MS = 1_000;
 
 export class ApiError extends Error {
   constructor(
@@ -40,9 +44,23 @@ export function toApiError(error: HttpErrorResponse): ApiError {
   return new ApiError(message, error.status);
 }
 
-export const errorInterceptor: HttpInterceptorFn = (req, next) =>
-  next(req).pipe(
+export const errorInterceptor: HttpInterceptorFn = (req, next) => {
+  const baseUrl = inject(API_BASE_URL).replace(/\/+$/, '');
+  const isApiRequest = req.url === baseUrl || req.url.startsWith(`${baseUrl}/`);
+
+  return next(req).pipe(
     timeout({ each: API_REQUEST_TIMEOUT_MS }),
+    retry({
+      count: 1,
+      delay: (error: unknown) => {
+        const transient =
+          error instanceof TimeoutError ||
+          (error instanceof HttpErrorResponse && [0, 502, 503, 504].includes(error.status));
+        return isApiRequest && req.method === 'GET' && transient
+          ? timer(API_RETRY_DELAY_MS)
+          : throwError(() => error);
+      },
+    }),
     catchError((error: unknown) => {
       if (error instanceof TimeoutError) {
         return throwError(() => new ApiError('A API demorou para responder. Tente novamente.', 0));
@@ -50,3 +68,4 @@ export const errorInterceptor: HttpInterceptorFn = (req, next) =>
       return throwError(() => (error instanceof HttpErrorResponse ? toApiError(error) : error));
     }),
   );
+};

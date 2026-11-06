@@ -118,3 +118,26 @@ def test_vercel_preview_not_allowed_by_default(client):
         "/api/v1/health", headers={"Origin": "https://project-preview.vercel.app"}
     )
     assert "access-control-allow-origin" not in response.headers
+
+
+@pytest.mark.parametrize("method", ["GET", "POST", "PUT", "DELETE"])
+def test_vercel_wildcard_allows_preflight_with_headers(settings, monkeypatch, method):
+    origin = "https://vax-coverage-sp-analytics-92no9wuto-lucianapereiras-projects.vercel.app"
+    monkeypatch.setattr(
+        app_main,
+        "get_settings",
+        lambda: replace(settings, cors_origins=["https://*.vercel.app"]),
+    )
+    client = TestClient(app_main.create_app())
+    response = client.options(
+        "/api/v1/analytics/upload",
+        headers={
+            "Origin": origin,
+            "Access-Control-Request-Method": method,
+            "Access-Control-Request-Headers": "content-type,x-file-name",
+        },
+    )
+    assert response.status_code == 200
+    assert response.headers["access-control-allow-origin"] == origin
+    assert method in response.headers["access-control-allow-methods"].split(", ")
+    assert "x-file-name" in response.headers["access-control-allow-headers"].lower()

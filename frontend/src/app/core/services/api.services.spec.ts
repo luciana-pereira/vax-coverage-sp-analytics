@@ -1,9 +1,9 @@
-import { provideHttpClient, withInterceptors } from '@angular/common/http';
+import { HttpClient, provideHttpClient, withInterceptors } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { fakeAsync, TestBed, tick } from '@angular/core/testing';
 
 import { API_BASE_URL } from '../config/api-config';
-import { API_REQUEST_TIMEOUT_MS, errorInterceptor } from '../interceptors/error.interceptor';
+import { API_REQUEST_TIMEOUT_MS, API_RETRY_DELAY_MS, errorInterceptor } from '../interceptors/error.interceptor';
 import {
   CoverageService,
   MunicipalitiesService,
@@ -97,25 +97,72 @@ describe('API services', () => {
       .flush({ detail: 'Município 9999 sem registros.' }, { status: 404, statusText: 'Not Found' });
   });
 
-  it('reports an unreachable API with a clear message', (done) => {
+  it('reports an unreachable API after one retry', fakeAsync(() => {
+    let message = '';
     TestBed.inject(CoverageService).filters().subscribe({
-      error: (error: Error) => {
-        expect(error.message).toContain('conectar à API');
-        done();
-      },
+      error: (error: Error) => (message = error.message),
     });
     http.expectOne('http://api.test/api/v1/coverage/filters').error(new ProgressEvent('error'));
-  });
+    expect(message).toBe('');
+    tick(API_RETRY_DELAY_MS);
+    http.expectOne('http://api.test/api/v1/coverage/filters').error(new ProgressEvent('error'));
+    expect(message).toContain('conectar à API');
+  }));
 
-  it('turns an API timeout into a recoverable network message', fakeAsync(() => {
+  it('retries one API timeout before reporting it', fakeAsync(() => {
     let message = '';
     expect(API_REQUEST_TIMEOUT_MS).toBe(90_000);
     TestBed.inject(CoverageService).filters().subscribe({ error: (error: Error) => (message = error.message) });
     http.expectOne('http://api.test/api/v1/coverage/filters');
 
     tick(API_REQUEST_TIMEOUT_MS);
-
+    expect(message).toBe('');
+    tick(API_RETRY_DELAY_MS);
+    http.expectOne('http://api.test/api/v1/coverage/filters');
+    tick(API_REQUEST_TIMEOUT_MS);
     expect(message).toContain('demorou para responder');
+  }));
+
+  it('retries a transient gateway error and returns the successful response', fakeAsync(() => {
+    let completed = false;
+    TestBed.inject(CoverageService).filters().subscribe(() => (completed = true));
+    http.expectOne('http://api.test/api/v1/coverage/filters')
+      .flush({}, { status: 503, statusText: 'Service Unavailable' });
+    tick(API_RETRY_DELAY_MS);
+    http.expectOne('http://api.test/api/v1/coverage/filters').flush({});
+    expect(completed).toBeTrue();
+  }));
+
+  it('does not retry a failing CSV upload', fakeAsync(() => {
+    let message = '';
+    const file = new File(['header'], 'doses.csv', { type: 'text/csv' });
+    TestBed.inject(VaccinationAnalyticsService).upload(file).subscribe({
+      error: (error: Error) => (message = error.message),
+    });
+    http.expectOne('http://api.test/api/v1/analytics/upload').error(new ProgressEvent('error'));
+    tick(API_RETRY_DELAY_MS);
+    http.expectNone('http://api.test/api/v1/analytics/upload');
+    expect(message).toContain('conectar à API');
+  }));
+
+  it('does not retry network errors from other origins', fakeAsync(() => {
+    let message = '';
+    TestBed.inject(HttpClient).get('https://other.example/data').subscribe({
+      error: (error: Error) => (message = error.message),
+    });
+    http.expectOne('https://other.example/data').error(new ProgressEvent('error'));
+    tick(API_RETRY_DELAY_MS);
+    http.expectNone('https://other.example/data');
+    expect(message).toContain('conectar à API');
+  }));
+
+  it('cancels the scheduled retry when unsubscribed', fakeAsync(() => {
+    const subscription = TestBed.inject(CoverageService).filters().subscribe();
+    http.expectOne('http://api.test/api/v1/coverage/filters').error(new ProgressEvent('error'));
+    subscription.unsubscribe();
+    expect(subscription.closed).toBeTrue();
+    tick(API_RETRY_DELAY_MS);
+    http.expectNone('http://api.test/api/v1/coverage/filters');
   }));
 
   it('allows a slow response beyond the previous 30-second timeout', fakeAsync(() => {

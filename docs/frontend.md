@@ -33,7 +33,7 @@ frontend/src/
 
 O `ShellComponent` mantém a navegação e envolve o cabeçalho e o `router-outlet` em `<main>`. Os serviços em `core/services` comunicam-se com a API via `ApiClient`; componentes não acessam diretamente DuckDB ou Parquet. Os estados de carregamento, erro, ausência de dados e resultados vazios são apresentados explicitamente.
 
-O `errorInterceptor` converte falhas HTTP em mensagens de erro legíveis e estabelece um limite de 90 segundos entre eventos da requisição. Os helpers `loadOnChange` e `loadOnce` administram estados assíncronos, e `core/models/api.models.ts` define os tipos usados para as respostas da API.
+O `errorInterceptor` converte falhas HTTP em mensagens de erro legíveis e estabelece um limite de 90 segundos entre eventos da requisição. Requisições GET à API são repetidas uma vez após um segundo em caso de timeout, falha de rede ou HTTP 502, 503 ou 504; operações de escrita não são repetidas automaticamente. Os helpers `loadOnChange` e `loadOnce` administram estados assíncronos, e `core/models/api.models.ts` define os tipos usados para as respostas da API.
 
 ### Rotas
 
