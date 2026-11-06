@@ -7,6 +7,42 @@ import { API_BASE_URL } from '../../core/config/api-config';
 import { DashboardPage } from './dashboard.page';
 
 const BASE = 'http://api.test/api/v1';
+const analyticsResponse = {
+  status: 'ok',
+  message: null,
+  source: 'PNI JSONL local',
+  source_updated_at: '2024-12-31T12:00:00Z',
+  generated_at: '2025-01-01T12:00:00Z',
+  year: 2024,
+  period_start: '2024-01',
+  period_end: '2024-01',
+  total_doses: 245,
+  statewide: false,
+  dimensions: {
+    sex: false,
+    age: false,
+    vaccine_code: false,
+    vaccine_abbreviation: true,
+    vaccine_description: false,
+    patient_municipality: true,
+    application_municipality: false,
+    municipality_comparison: false,
+  },
+  filters: {
+    years: [2024],
+    vaccines: [{ key: '[null,"BCG",null]', code: null, abbreviation: 'BCG', description: null, label: 'BCG' }],
+    age_groups: [],
+    patient_municipalities: [{ code: '350010', name: 'Adamantina' }],
+    application_municipalities: [],
+  },
+  monthly: [{ month: '2024-01', doses: 245 }],
+  by_sex: [],
+  by_age_group: [],
+  by_vaccine: [{ key: '[null,"BCG",null]', code: null, abbreviation: 'BCG', description: null, label: 'BCG', doses: 245 }],
+  by_patient_municipality: [{ code: '350010', name: 'Adamantina', doses: 245 }],
+  by_application_municipality: [],
+  warnings: [],
+};
 
 describe('DashboardPage', () => {
   let fixture: ComponentFixture<DashboardPage>;
@@ -48,7 +84,9 @@ describe('DashboardPage', () => {
       deficit_distribution: [],
       top_deficit_municipalities: [],
     });
+    answer('/analytics', analyticsResponse);
     answer('/coverage/filters', { status: 'data_unavailable', years: [], immunizers: [], deficit_classes: [] });
+    answer('/coverage/immunizers', { status: 'data_unavailable', message: 'sem imunizantes', items: [] });
     answer('/coverage/history', { status: 'data_unavailable', series: [] });
     answer('/municipalities', { status: 'data_unavailable', total: 0, limit: 1000, offset: 0, items: [] });
     answer('/geo/municipalities', { status: 'data_unavailable', message: 'sem geojson', geojson: null });
@@ -80,7 +118,13 @@ describe('DashboardPage', () => {
         { municipality_code: '3300', municipality_name: 'Gamma', mean_coverage: 60, mean_deficit: 35 },
       ],
     });
+    answer('/analytics', analyticsResponse);
     answer('/coverage/filters', { status: 'ok', years: [2022, 2023], immunizers: [], deficit_classes: ['baixo', 'alto'] });
+    answer('/coverage/immunizers', {
+      status: 'ok',
+      message: null,
+      items: [{ immunizer: 'BCG', mean_coverage: 80, mean_deficit: 15 }],
+    });
     answer('/coverage/history', {
       status: 'ok',
       series: [{ key: 'all', label: 'Todos', points: [{ year: 2022, mean_coverage: 80, mean_deficit: 15, records: 2 }] }],
@@ -94,6 +138,15 @@ describe('DashboardPage', () => {
     expect(text()).toContain('16,0 p.p.');
     expect(text()).toContain('Gamma (3300)');
     expect(text()).toContain('Situação crítica');
+    expect(text()).toContain('Cobertura média por imunizante');
+    expect(text()).toContain('PNI JSONL local');
+    expect(
+      fixture.nativeElement.querySelector(
+        'canvas[aria-label="Doses de vacinação por mês, dados agregados da fonte selecionada"]',
+      ),
+    ).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('canvas[aria-label="Cobertura média por imunizante, em percentual"]'))
+      .not.toBeNull();
   });
 
   it('shows an error panel when the request fails', async () => {
@@ -101,6 +154,8 @@ describe('DashboardPage', () => {
       req.flush({ detail: 'erro interno' }, { status: 500, statusText: 'Server Error' });
     }
     answer('/coverage/filters', { status: 'ok', years: [], immunizers: [], deficit_classes: [] });
+    answer('/analytics', analyticsResponse);
+    answer('/coverage/immunizers', { status: 'data_unavailable', message: 'sem imunizantes', items: [] });
     answer('/coverage/history', { status: 'ok', series: [] });
     answer('/municipalities', { status: 'ok', total: 0, limit: 1000, offset: 0, items: [] });
     answer('/geo/municipalities', { status: 'data_unavailable', message: null, geojson: null });

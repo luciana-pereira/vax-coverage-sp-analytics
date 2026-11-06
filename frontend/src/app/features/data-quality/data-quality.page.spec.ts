@@ -45,6 +45,10 @@ describe('DataQualityPage', () => {
         year_max: 2024,
         duplicate_rows: 0,
         missing_columns: [],
+        records_by_year: [
+          { year: 2020, records: 20 },
+          { year: 2024, records: 80 },
+        ],
         columns: [
           {
             name: 'coverage',
@@ -92,6 +96,16 @@ describe('DataQualityPage', () => {
     expect(text).toContain('coverage');
     expect(text).toContain('Features Parquet');
     expect(text).toContain('Modelo treinado');
+    expect(
+      (fixture.nativeElement as HTMLElement).querySelector(
+        'canvas[aria-label="Proporção de valores nulos por coluna"]',
+      ),
+    ).not.toBeNull();
+    expect(
+      (fixture.nativeElement as HTMLElement).querySelector(
+        'canvas[aria-label="Quantidade de registros por ano"]',
+      ),
+    ).not.toBeNull();
   });
 
   it('highlights duplicated rows as an alert', () => {

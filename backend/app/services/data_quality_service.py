@@ -10,6 +10,7 @@ from ..schemas.data_quality import (
     ColumnQuality,
     DataQualityResponse,
     DatasetQuality,
+    YearRecordCount,
 )
 
 RECOMMENDED_COLUMNS = ("municipality_name",)
@@ -85,6 +86,10 @@ class DataQualityService:
                         null_ratio=round(c["null_count"] / rows, 4) if rows else 0.0,
                     )
                     for c in stats["columns"]
+                ],
+                records_by_year=[
+                    YearRecordCount(year=row["year"], records=row["records"])
+                    for row in stats["records_by_year"]
                 ],
             )
         return DataQualityResponse(

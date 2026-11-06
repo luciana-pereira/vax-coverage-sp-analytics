@@ -11,6 +11,23 @@ DataStatus = Literal["ok", "data_unavailable"]
 
 class ErrorResponse(BaseModel):
     detail: str = Field(description="Descrição do erro.", examples=["Município não encontrado."])
+    request_id: str = Field(description="Identificador para correlacionar com o log do servidor.")
+
+
+SERVER_ERROR_RESPONSES = {
+    500: {
+        "model": ErrorResponse,
+        "description": "Erro interno sanitizado; use request_id para suporte.",
+    },
+}
+
+QUERY_ERROR_RESPONSES = {
+    **SERVER_ERROR_RESPONSES,
+    422: {
+        "model": ErrorResponse,
+        "description": "Parâmetros ou dados inválidos.",
+    },
+}
 
 
 class HealthResponse(BaseModel):

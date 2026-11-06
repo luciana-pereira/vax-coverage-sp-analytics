@@ -4,11 +4,12 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends
 
+from ...schemas.common import SERVER_ERROR_RESPONSES
 from ...schemas.data_quality import GeoResponse
 from ...services.geo_service import GeoService
 from ..deps import get_geo_service
 
-router = APIRouter(prefix="/geo", tags=["geo"])
+router = APIRouter(prefix="/geo", tags=["geo"], responses=SERVER_ERROR_RESPONSES)
 
 
 @router.get(

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import requests
+from .http import get_with_retry
 
 
 def fetch_population(
@@ -12,8 +12,7 @@ def fetch_population(
 ) -> list[dict]:
     url = f"{base_url.rstrip('/')}/values/t/{table}/n6/all/v/{variable}/p/{year}"
 
-    response = requests.get(url, timeout=timeout)
-    response.raise_for_status()
+    response = get_with_retry(url, timeout=timeout)
 
     payload = response.json()
 
@@ -44,8 +43,7 @@ def fetch_census_age_structure(
         "/values/t/9514/n6/in%20n3%2035/p/2022"
     )
 
-    response = requests.get(url, timeout=120)
-    response.raise_for_status()
+    response = get_with_retry(url, timeout=120)
 
     payload = response.json()
 

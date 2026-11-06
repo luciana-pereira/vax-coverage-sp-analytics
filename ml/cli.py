@@ -13,6 +13,9 @@ import sys
 
 import pandas as pd
 
+from pipeline.config import REQUIRED_COLUMNS
+from pipeline.validate.validator import validate_dataset, validate_population_alignment
+
 from .config import MlSettings, load_settings
 from .evaluation.evaluate import load_metrics
 from .features.build_features import (
@@ -34,12 +37,32 @@ def cmd_features(settings: MlSettings) -> None:
             f"Dados processados ausentes: {settings.processed_file}. Execute o pipeline."
         )
     df = pd.read_parquet(settings.processed_file)
-    required = {"doses", "population", "year"}
-    if not required.issubset(df.columns):
+    report = validate_dataset(df, REQUIRED_COLUMNS)
+    if not report.ok:
         raise RuntimeError(
-            f"Colunas ausentes {sorted(required - set(df.columns))}: mapeie as colunas reais "
-            "da fonte (docs/data/pipeline.md)."
+            "Dataset processado inválido; features/ML não foram geradas: "
+            + "; ".join(report.issues)
         )
+
+    if not settings.target_population_path.is_file():
+        raise RuntimeError(
+            "População-alvo ausente; features de cobertura/ML não serão calculadas "
+            "com população municipal total."
+        )
+    target_population = pd.read_csv(settings.target_population_path)
+    alignment_issues = validate_population_alignment(df, target_population)
+    if alignment_issues:
+        raise RuntimeError("Denominadores inválidos: " + "; ".join(alignment_issues))
+
+    if not settings.coverage_targets_path.is_file() or not settings.targets_by_immunizer:
+        raise RuntimeError(
+            "Metas de cobertura por imunizante ausentes; não será aplicado o default de 95% "
+            "sem origem validada."
+        )
+    immunizers = set(df["immunizer"].astype(str))
+    missing_targets = immunizers - set(settings.targets_by_immunizer)
+    if missing_targets:
+        raise RuntimeError(f"Metas de cobertura ausentes para: {sorted(missing_targets)}")
 
     features = build_vaccination_features(
         df,
@@ -47,8 +70,8 @@ def cmd_features(settings: MlSettings) -> None:
         "population",
         "year",
         meta=settings.coverage_target_default,
-        immunizer_col="immunizer" if "immunizer" in df.columns else None,
-        targets=settings.targets_by_immunizer or None,
+        immunizer_col="immunizer",
+        targets=settings.targets_by_immunizer,
     )
     settings.features_path.parent.mkdir(parents=True, exist_ok=True)
     features.to_parquet(settings.features_path, index=False)

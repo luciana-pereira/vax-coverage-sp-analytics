@@ -1,4 +1,4 @@
-import { Component, ElementRef, OnDestroy, effect, input, viewChild } from '@angular/core';
+import { Component, ElementRef, OnDestroy, computed, effect, input, viewChild } from '@angular/core';
 import {
   ArcElement,
   BarController,
@@ -14,6 +14,8 @@ import {
   PointElement,
   Tooltip,
 } from 'chart.js';
+
+import { chartTable } from '../utils/charts';
 
 Chart.register(
   ArcElement,
@@ -37,6 +39,37 @@ Chart.register(
     <div class="chart-box">
       <canvas #canvas role="img" [attr.aria-label]="ariaLabel()"></canvas>
     </div>
+    <details class="chart-data-table">
+      <summary>Ver dados do gráfico em tabela</summary>
+      @let tableData = table();
+      @if (tableData.rows.length > 0) {
+        <div class="table-wrap">
+          <table class="table">
+            <caption class="visually-hidden">{{ ariaLabel() }}</caption>
+            <thead>
+              <tr>
+                <th scope="col">Categoria</th>
+                @for (series of tableData.series; track $index) {
+                  <th scope="col">{{ series }}</th>
+                }
+              </tr>
+            </thead>
+            <tbody>
+              @for (row of tableData.rows; track $index) {
+                <tr>
+                  <th scope="row">{{ row.label }}</th>
+                  @for (value of row.values; track $index) {
+                    <td class="num">{{ valueText(value) }}</td>
+                  }
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      } @else {
+        <p>Sem dados para exibir.</p>
+      }
+    </details>
   `,
 })
 export class ChartComponent implements OnDestroy {
@@ -45,6 +78,7 @@ export class ChartComponent implements OnDestroy {
 
   private readonly canvas = viewChild<ElementRef<HTMLCanvasElement>>('canvas');
   private chart?: Chart;
+  protected readonly table = computed(() => chartTable(this.config()));
 
   constructor() {
     effect(() => {
@@ -61,5 +95,12 @@ export class ChartComponent implements OnDestroy {
 
   ngOnDestroy(): void {
     this.chart?.destroy();
+  }
+
+  protected valueText(value: number | string | null): string {
+    if (value === null) return 'Sem dados';
+    return typeof value === 'number'
+      ? new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 2 }).format(value)
+      : value;
   }
 }

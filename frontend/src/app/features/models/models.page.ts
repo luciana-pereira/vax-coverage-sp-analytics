@@ -33,7 +33,7 @@ const MODEL_LABELS: Record<string, string> = {
       @if (r.status === 'loading') {
         <app-state-panel kind="loading" />
       } @else if (r.status === 'error') {
-        <app-state-panel kind="error" [message]="r.message" />
+        <app-state-panel kind="error" [message]="r.message" [retryable]="true" (retry)="report.retry()" />
       } @else if (r.data.status !== 'ok' || !r.data.split) {
         <app-state-panel kind="unavailable" [message]="r.data.message" />
       } @else {
@@ -95,9 +95,11 @@ const MODEL_LABELS: Record<string, string> = {
 
         <div class="grid grid--two">
           <article class="card">
-            <h2>F1 macro por modelo</h2>
-            @if (f1Chart(); as config) {
-              <app-chart [config]="config" ariaLabel="F1 macro de cada modelo no teste" />
+            <h2>Comparação das métricas no teste</h2>
+            @if (metricsChart(); as config) {
+              <app-chart [config]="config" ariaLabel="F1, precision, recall e acurácia por modelo no teste" />
+            } @else {
+              <app-state-panel kind="empty" message="Não há métricas válidas para comparar." />
             }
           </article>
           <article class="card">
@@ -148,15 +150,35 @@ export class ModelsPage {
     return state.data.models.find((m) => m.is_best) ?? null;
   });
 
-  protected readonly f1Chart = computed(() => {
+  protected readonly metricsChart = computed(() => {
     const state = this.report();
     if (state.status !== 'success' || state.data.models.length === 0) return null;
     const models = state.data.models;
-    const metric = (m: ModelMetrics): number => m.f1_macro;
     return barChart(
       models.map((m) => this.modelName(m.name)),
-      [{ label: 'F1 macro (teste)', data: models.map((m) => metric(m.test)), colors: '#1f4e79' }],
-      { yTitle: 'F1 macro', max: 1 },
+      [
+        {
+          label: 'F1 macro',
+          data: models.map((model) => model.test.f1_macro),
+          colors: '#1769f5',
+        },
+        {
+          label: 'Precision macro',
+          data: models.map((model) => model.test.precision_macro),
+          colors: '#0d9488',
+        },
+        {
+          label: 'Recall macro',
+          data: models.map((model) => model.test.recall_macro),
+          colors: '#e55c54',
+        },
+        {
+          label: 'Acurácia',
+          data: models.map((model) => model.test.accuracy),
+          colors: '#6575c5',
+        },
+      ],
+      { yTitle: 'Pontuação (0–1)', max: 1 },
     );
   });
 

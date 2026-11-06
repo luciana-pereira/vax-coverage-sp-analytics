@@ -10,11 +10,13 @@ import { SidebarComponent } from './sidebar.component';
   imports: [HeaderComponent, SidebarComponent, RouterOutlet],
   template: `
     <a class="skip-link" href="#main">Ir para o conteúdo</a>
-    <app-header />
     <div class="shell">
       <app-sidebar />
       <main id="main" class="main" tabindex="-1">
-        <router-outlet />
+        <app-header />
+        <div class="main__content">
+          <router-outlet />
+        </div>
       </main>
     </div>
   `,

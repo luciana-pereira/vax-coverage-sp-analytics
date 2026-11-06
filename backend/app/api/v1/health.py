@@ -2,10 +2,10 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 
-from ...schemas.common import HealthResponse
+from ...schemas.common import SERVER_ERROR_RESPONSES, HealthResponse
 from ..deps import SettingsDep
 
-router = APIRouter(tags=["health"])
+router = APIRouter(tags=["health"], responses=SERVER_ERROR_RESPONSES)
 
 
 @router.get(

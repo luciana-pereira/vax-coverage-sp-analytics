@@ -8,9 +8,12 @@ from __future__ import annotations
 
 import argparse
 import logging
+import os
 import sys
+from uuid import uuid4
 
 import pandas as pd
+import requests
 
 from .config import REQUIRED_COLUMNS, PipelineSettings, load_column_mapping, load_settings
 from .extract.extractor import extract_paginated
@@ -21,9 +24,49 @@ from .transform.transformer import (
     load_jsonl,
     transform,
 )
-from .validate.validator import validate_dataset
+from .validate.validator import validate_dataset, validate_population_alignment
 
 logger = logging.getLogger("pipeline")
+
+
+def _write_parquet_atomically(df: pd.DataFrame, output_path) -> None:
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    temporary_path = output_path.with_name(
+        f".{output_path.stem}.{uuid4().hex}.tmp{output_path.suffix}"
+    )
+    try:
+        df.to_parquet(temporary_path, index=False)
+        os.replace(temporary_path, output_path)
+    except BaseException:
+        temporary_path.unlink(missing_ok=True)
+        raise
+
+
+PNI_SOURCE_ALIASES = {
+    "municipality_code": ("co_municipio_paciente", "codigo_municipio_paciente"),
+    "municipality_name": ("no_municipio_paciente", "nome_municipio_paciente"),
+    "immunizer": ("sg_imunobiologico", "codigo_vacina", "co_vacina"),
+    "id": ("ref_uuid",),
+    "immunizer_name": ("ds_vacina", "descricao_vacina"),
+    "date": ("dt_vacina", "data_vacina"),
+    "birth_date": ("dt_nascimento_paciente",),
+    "sex": ("tp_sexo_paciente", "tipo_sexo_paciente"),
+    "cnes_code": ("co_cnes_estabelecimento", "codigo_cnes_estabelecimento"),
+    "facility_name": (
+        "no_razao_social_estabelecimento",
+        "nome_razao_social_estabelecimento",
+    ),
+}
+OPTIONAL_PNI_MAPPING_FIELDS = {
+    "id",
+    "municipality_name",
+    "immunizer_name",
+    "date",
+    "birth_date",
+    "sex",
+    "cnes_code",
+    "facility_name",
+}
 
 def load_pni_jsonl(path, target_uf: str = "SP"):
     df = load_jsonl(path)
@@ -38,7 +81,9 @@ def load_pni_jsonl(path, target_uf: str = "SP"):
             errors="coerce",
         ).dt.year
 
-    if "doses" not in df.columns and "codigo_documento" in df.columns:
+    if "doses" not in df.columns and (
+        "codigo_documento" in df.columns or "sg_imunobiologico" in df.columns
+    ):
         df["doses"] = 1
 
     if "sigla_uf_paciente" in df.columns:
@@ -46,6 +91,42 @@ def load_pni_jsonl(path, target_uf: str = "SP"):
         df = df.loc[patient_uf == target_uf.upper()].copy()
 
     return df
+
+
+def resolve_pni_mapping(df: pd.DataFrame, mapping: dict[str, str]) -> dict[str, str]:
+    """Use configured sources first, then aliases observed in PNI payloads."""
+    resolved = {}
+    for canonical, configured_source in mapping.items():
+        if configured_source in df.columns:
+            resolved[canonical] = configured_source
+            continue
+        source = next(
+            (
+                candidate
+                for candidate in PNI_SOURCE_ALIASES.get(canonical, ())
+                if candidate in df.columns
+            ),
+            None,
+        )
+        if source:
+            resolved[canonical] = source
+        elif canonical not in OPTIONAL_PNI_MAPPING_FIELDS:
+            resolved[canonical] = configured_source
+    return resolved
+
+
+def _validate_processed_frame(df: pd.DataFrame, settings: PipelineSettings):
+    report = validate_dataset(df, REQUIRED_COLUMNS)
+    if not report.ok:
+        return report
+    if not settings.population_path.is_file():
+        report.issues.append(
+            "Arquivo de população-alvo ausente; não é possível validar os denominadores."
+        )
+        return report
+    target_population = pd.read_csv(settings.population_path)
+    report.issues.extend(validate_population_alignment(df, target_population))
+    return report
 
 def cmd_extract(settings: PipelineSettings, year: int) -> None:
     endpoint = f"/vacinacao/doses-aplicadas-pni-{year}"
@@ -81,28 +162,31 @@ def cmd_transform(settings: PipelineSettings) -> None:
         load_pni_jsonl(settings.raw_file, target_uf=settings.target_uf),
         deduplicate=settings.deduplicate_raw,
     )
-    df = apply_column_mapping(df, mapping)
+    df = apply_column_mapping(df, resolve_pni_mapping(df, mapping))
 
-    if "population" not in df.columns:
-        if not settings.population_path.is_file():
-            raise RuntimeError(
-                "Denominador de população-alvo ausente: "
-                f"{settings.population_path}. A população municipal total do SIDRA "
-                "não será usada como denominador vacinal."
-            )
+    if not settings.population_path.is_file():
+        raise RuntimeError(
+            "Denominador de população-alvo ausente: "
+            f"{settings.population_path}. A população municipal total do SIDRA "
+            "não será usada como denominador vacinal."
+        )
+    population = pd.read_csv(settings.population_path)
+    df = attach_target_population(df, population)
+    report = _validate_processed_frame(df, settings)
+    if not report.ok:
+        raise RuntimeError(
+            "Transformação inválida; o Parquet anterior foi preservado: "
+            + "; ".join(report.issues)
+        )
 
-        population = pd.read_csv(settings.population_path)
-        df = attach_target_population(df, population)
-
-    settings.processed_file.parent.mkdir(parents=True, exist_ok=True)
-    df.to_parquet(settings.processed_file, index=False)
+    _write_parquet_atomically(df, settings.processed_file)
     logger.info("Processado: %s linhas em %s", len(df), settings.processed_file)
 
 
 def cmd_validate(settings: PipelineSettings) -> None:
     if not settings.processed_file.exists():
         raise FileNotFoundError(f"Dados processados ausentes: {settings.processed_file}")
-    report = validate_dataset(pd.read_parquet(settings.processed_file), REQUIRED_COLUMNS)
+    report = _validate_processed_frame(pd.read_parquet(settings.processed_file), settings)
     logger.info("Linhas=%s nulos=%s", report.rows, report.null_counts)
     if not report.ok:
         for issue in report.issues:
@@ -115,6 +199,12 @@ def cmd_load(settings: PipelineSettings) -> None:
     if not settings.processed_file.exists():
         raise FileNotFoundError(f"Dados processados ausentes: {settings.processed_file}")
     df = pd.read_parquet(settings.processed_file)
+    report = _validate_processed_frame(df, settings)
+    if not report.ok:
+        raise RuntimeError(
+            "Dataset processado inválido; a tabela DuckDB não foi atualizada: "
+            + "; ".join(report.issues)
+        )
     save_dataframe(df, settings.duckdb_path, "vaccination")
     logger.info("Tabela 'vaccination' (%s linhas) em %s", len(df), settings.duckdb_path)
 
@@ -144,6 +234,9 @@ def main(argv: list[str] | None = None) -> int:
             COMMANDS[args.command](settings)
     except (FileNotFoundError, RuntimeError, KeyError, ValueError) as exc:
         logger.error("%s", exc)
+        return 1
+    except (requests.RequestException, OSError) as exc:
+        logger.error("Falha na etapa '%s' ao acessar a fonte ou os arquivos: %s", args.command, exc)
         return 1
     return 0
 

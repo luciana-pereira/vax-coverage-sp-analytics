@@ -46,4 +46,20 @@ describe('toLoadState', () => {
         expect(state()).toEqual({ status: 'success', data: 42 });
         expect(fetch).toHaveBeenCalledTimes(1);
     });
+
+    it('retries a one-time request without changing its signal contract', async () => {
+        let attempts = 0;
+        const fetch = jasmine.createSpy('fetch').and.callFake(() => {
+            attempts += 1;
+            return attempts === 1 ? throwError(() => new Error('falhou')) : of(42);
+        });
+        const state = TestBed.runInInjectionContext(() => loadOnce(fetch));
+
+        expect(state()).toEqual({ status: 'error', message: 'falhou' });
+        state.retry();
+        await new Promise((resolve) => setTimeout(resolve));
+
+        expect(fetch).toHaveBeenCalledTimes(2);
+        expect(state()).toEqual({ status: 'success', data: 42 });
+    });
 });

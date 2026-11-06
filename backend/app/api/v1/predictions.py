@@ -4,11 +4,12 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query
 
+from ...schemas.common import QUERY_ERROR_RESPONSES
 from ...schemas.prediction import PredictionResponse
 from ...services.prediction_service import PredictionService
 from ..deps import get_prediction_service
 
-router = APIRouter(prefix="/predictions", tags=["predictions"])
+router = APIRouter(prefix="/predictions", tags=["predictions"], responses=QUERY_ERROR_RESPONSES)
 
 
 @router.get(

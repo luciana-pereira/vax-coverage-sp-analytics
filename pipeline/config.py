@@ -15,14 +15,27 @@ load_dotenv(ROOT / ".env")
 
 # Colunas canônicas esperadas depois da etapa de transformação.
 CANONICAL_COLUMNS = (
+    "id",
     "municipality_code",
     "municipality_name",
+    "immunizer",
+    "immunizer_name",
+    "date",
+    "birth_date",
+    "sex",
+    "cnes_code",
+    "facility_name",
+    "year",
+    "doses",
+    "population",
+)
+REQUIRED_COLUMNS = (
+    "municipality_code",
     "immunizer",
     "year",
     "doses",
     "population",
 )
-REQUIRED_COLUMNS = ("municipality_code", "year", "doses", "population")
 
 
 def _path(name: str, default: str) -> Path:
@@ -102,7 +115,7 @@ def load_settings() -> PipelineSettings:
             "external/target_population.csv",
             data_dir,
         ),
-        deduplicate_raw=os.getenv("DEDUPLICATE_RAW", "true").lower() in {"1", "true", "yes"},
+        deduplicate_raw=os.getenv("DEDUPLICATE_RAW", "false").lower() in {"1", "true", "yes"},
     )
 
 

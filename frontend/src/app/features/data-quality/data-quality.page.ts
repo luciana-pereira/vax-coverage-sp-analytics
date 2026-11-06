@@ -1,15 +1,17 @@
-import { Component, inject } from '@angular/core';
+import { Component, computed, inject } from '@angular/core';
 
 import { DataQualityService } from '../../core/services/api.services';
+import { ChartComponent } from '../../shared/components/chart.component';
 import { KpiCardComponent } from '../../shared/components/kpi-card.component';
 import { StatePanelComponent } from '../../shared/components/state-panel.component';
 import { loadOnce } from '../../shared/state/load-state';
+import { barChart } from '../../shared/utils/charts';
 import { formatInteger, formatPercent } from '../../shared/utils/format';
 
 @Component({
   selector: 'app-data-quality-page',
   standalone: true,
-  imports: [KpiCardComponent, StatePanelComponent],
+  imports: [ChartComponent, KpiCardComponent, StatePanelComponent],
   template: `
     <section class="page" aria-labelledby="dq-title">
       <div>
@@ -21,7 +23,7 @@ import { formatInteger, formatPercent } from '../../shared/utils/format';
       @if (r.status === 'loading') {
         <app-state-panel kind="loading" />
       } @else if (r.status === 'error') {
-        <app-state-panel kind="error" [message]="r.message" />
+        <app-state-panel kind="error" [message]="r.message" [retryable]="true" (retry)="report.retry()" />
       } @else {
         @if (r.data.known_gaps.length > 0) {
           <article class="card">
@@ -44,6 +46,24 @@ import { formatInteger, formatPercent } from '../../shared/utils/format';
           @if (ds.missing_columns.length > 0) {
             <app-state-panel kind="unavailable" [message]="'Colunas ausentes: ' + ds.missing_columns.join(', ')" />
           }
+          <div class="grid grid--two">
+            <article class="card">
+              <h2>Proporção de valores nulos</h2>
+              @if (nullsChart(); as config) {
+                <app-chart [config]="config" ariaLabel="Proporção de valores nulos por coluna" />
+              } @else {
+                <app-state-panel kind="empty" message="Nenhum valor nulo registrado no dataset." />
+              }
+            </article>
+            <article class="card">
+              <h2>Registros por ano</h2>
+              @if (yearlyChart(); as config) {
+                <app-chart [config]="config" ariaLabel="Quantidade de registros por ano" />
+              } @else {
+                <app-state-panel kind="empty" message="O dataset não informa registros agrupados por ano." />
+              }
+            </article>
+          </div>
           <article class="card">
             <h2>Valores nulos por coluna</h2>
             <div class="table-wrap">
@@ -95,4 +115,28 @@ export class DataQualityPage {
   protected readonly report = loadOnce(() => this.api.report());
   protected readonly int = formatInteger;
   protected readonly pct = formatPercent;
+
+  protected readonly nullsChart = computed(() => {
+    const state = this.report();
+    if (state.status !== 'success' || !state.data.dataset) return null;
+    const columns = state.data.dataset.columns.filter((column) => column.null_count > 0);
+    if (columns.length === 0) return null;
+    return barChart(
+      columns.map((column) => column.name),
+      [{ label: 'Proporção de nulos', data: columns.map((column) => column.null_ratio), colors: '#e55c54' }],
+      { horizontal: true, yTitle: 'Proporção (0–1)', max: 1 },
+    );
+  });
+
+  protected readonly yearlyChart = computed(() => {
+    const state = this.report();
+    if (state.status !== 'success' || !state.data.dataset) return null;
+    const records = state.data.dataset.records_by_year;
+    if (records.length === 0) return null;
+    return barChart(
+      records.map((item) => String(item.year)),
+      [{ label: 'Registros', data: records.map((item) => item.records), colors: '#1769f5' }],
+      { yTitle: 'Quantidade de registros' },
+    );
+  });
 }

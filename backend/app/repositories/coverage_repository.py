@@ -219,6 +219,12 @@ class CoverageRepository(ParquetSource):
                 "MAX(CAST(year AS INTEGER)) AS year_max"
             )
         stats = self.rows(f"SELECT COUNT(*) AS n{extra} FROM {self._from}")[0]
+        records_by_year = []
+        if "year" in columns:
+            records_by_year = self.rows(
+                f"SELECT CAST(year AS INTEGER) AS year, COUNT(*) AS records "
+                f"FROM {self._from} WHERE year IS NOT NULL GROUP BY 1 ORDER BY 1"
+            )
         total = int(counts["rows"])
         return {
             "rows": total,
@@ -226,6 +232,7 @@ class CoverageRepository(ParquetSource):
             "municipalities": stats.get("municipalities"),
             "year_min": stats.get("year_min"),
             "year_max": stats.get("year_max"),
+            "records_by_year": records_by_year,
             "columns": [
                 {"name": c, "null_count": int(counts[f"n_{i}"])} for i, c in enumerate(columns)
             ],

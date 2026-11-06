@@ -5,10 +5,13 @@ import { Component } from '@angular/core';
   standalone: true,
   template: `
     <header class="header">
-      <div>
-        <h1 class="header__title">Vax Coverage SP</h1>
-        <p class="header__subtitle">Cobertura vacinal no Estado de São Paulo — PI IV UNIVESP</p>
+      <div class="header__identity">
+        <div>
+          <h1 class="header__title">Vax Coverage SP</h1>
+          <p class="header__subtitle">Inteligência em saúde pública</p>
+        </div>
       </div>
+      <p class="header__context">Cobertura vacinal · Estado de São Paulo</p>
     </header>
   `,
 })

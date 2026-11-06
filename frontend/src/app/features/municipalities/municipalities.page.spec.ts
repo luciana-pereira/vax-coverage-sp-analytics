@@ -3,10 +3,12 @@ import { of } from 'rxjs';
 import { provideRouter } from '@angular/router';
 import {
     MunicipalityListResponse,
+    VaccinationAnalyticsResponse,
 } from '../../core/models/api.models';
 import {
     CoverageService,
     MunicipalitiesService,
+    VaccinationAnalyticsService,
 } from '../../core/services/api.services';
 import { FilterStore } from '../../core/state/filter-store.service';
 import { MunicipalitiesPage } from './municipalities.page';
@@ -14,6 +16,16 @@ import { MunicipalitiesPage } from './municipalities.page';
 describe('MunicipalitiesPage', () => {
     let api!: jasmine.SpyObj<MunicipalitiesService>;
     let coverageApi!: jasmine.SpyObj<CoverageService>;
+    let analyticsApi!: jasmine.SpyObj<VaccinationAnalyticsService>;
+
+    const analyticsResponse: VaccinationAnalyticsResponse = {
+        status: 'ok', message: null, source: 'PNI JSONL local', source_updated_at: null,
+        generated_at: '2025-01-01T00:00:00Z', year: 2024, period_start: '2024-01', period_end: '2024-01', total_doses: 1, statewide: false,
+        dimensions: {},
+        filters: { years: [2024], vaccines: [], age_groups: [], patient_municipalities: [], application_municipalities: [] },
+        monthly: [{ month: '2024-01', doses: 1 }], by_sex: [], by_age_group: [], by_vaccine: [],
+        by_patient_municipality: [], by_application_municipality: [], warnings: [],
+    };
 
     function createResponse(
         overrides: Partial<MunicipalityListResponse> = {},
@@ -48,8 +60,13 @@ describe('MunicipalitiesPage', () => {
             'CoverageService',
             ['filters'],
         );
+        analyticsApi = jasmine.createSpyObj<VaccinationAnalyticsService>(
+            'VaccinationAnalyticsService',
+            ['analytics', 'upload'],
+        );
 
         api.list.and.returnValue(of(createResponse()));
+        analyticsApi.analytics.and.returnValue(of(analyticsResponse));
 
         coverageApi.filters.and.returnValue(
             of({
@@ -66,6 +83,7 @@ describe('MunicipalitiesPage', () => {
             providers: [
                 { provide: MunicipalitiesService, useValue: api },
                 { provide: CoverageService, useValue: coverageApi },
+                { provide: VaccinationAnalyticsService, useValue: analyticsApi },
                 provideRouter([]),
             ],
         });

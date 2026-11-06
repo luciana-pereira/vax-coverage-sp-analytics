@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+
 import pytest
 
 from ml import cli as ml_cli
@@ -10,6 +12,15 @@ from ml.config import load_settings
 
 @pytest.fixture
 def pipeline_outputs(data_dir, processed_frame):
+    population_path = data_dir / "external" / "target_population.csv"
+    processed_frame[
+        ["municipality_code", "year", "immunizer", "population"]
+    ].drop_duplicates().to_csv(population_path, index=False)
+    coverage_targets_path = data_dir / "external" / "coverage_targets.json"
+    coverage_targets_path.write_text(
+        json.dumps({"VAC_A": 95, "VAC_B": 95}),
+        encoding="utf-8",
+    )
     settings = load_settings()
     processed_frame.to_parquet(settings.processed_file, index=False)
     ml_cli.cmd_features(settings)

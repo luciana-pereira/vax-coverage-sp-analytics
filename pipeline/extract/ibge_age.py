@@ -1,8 +1,10 @@
 from __future__ import annotations
 
-import requests
+from collections.abc import Mapping
+
 import pandas as pd
 
+from .http import get_with_retry
 
 CENSUS_TABLE = 9514
 CENSUS_VARIABLE = 93
@@ -26,6 +28,7 @@ def fetch_census_age_population(
     base_url: str = "https://apisidra.ibge.gov.br",
     year: int = 2022,
     uf: str = "35",
+    timeout: int = 120,
 ) -> pd.DataFrame:
     """Busca população municipal de SP por faixa etária no Censo 2022."""
 
@@ -41,8 +44,7 @@ def fetch_census_age_population(
         f"/c287/{codes}"
     )
 
-    response = requests.get(url, timeout=120)
-    response.raise_for_status()
+    response = get_with_retry(url, timeout=timeout)
 
     payload = response.json()
 
@@ -85,8 +87,14 @@ def fetch_census_age_population(
 
 def build_target_population(
     census_age: pd.DataFrame,
+    age_group_to_immunizer: Mapping[str, str] | None = None,
 ) -> pd.DataFrame:
-    """Consolida população 0–4 e 60+ por município."""
+    """Build target populations only with an explicitly approved age mapping."""
+
+    if not age_group_to_immunizer:
+        raise ValueError(
+            "É necessário validar e fornecer o mapeamento de faixa etária para imunizante."
+        )
 
     required = {
         "municipality_code",
@@ -125,12 +133,10 @@ def build_target_population(
         .sum()
     )
 
-    result["immunizer"] = result["age_group"].map(
-        {
-            "0_4": "SCR",
-            "60_plus": "INF3",
-        }
-    )
+    unmapped = set(result["age_group"]) - set(age_group_to_immunizer)
+    if unmapped:
+        raise ValueError(f"Faixas etárias sem imunizante validado: {sorted(unmapped)}")
+    result["immunizer"] = result["age_group"].map(age_group_to_immunizer)
 
     return result[
         [

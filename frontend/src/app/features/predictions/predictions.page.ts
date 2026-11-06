@@ -51,7 +51,7 @@ const PAGE_SIZE = 25;
       @if (p.status === 'loading') {
         <app-state-panel kind="loading" />
       } @else if (p.status === 'error') {
-        <app-state-panel kind="error" [message]="p.message" />
+        <app-state-panel kind="error" [message]="p.message" [retryable]="true" (retry)="predictions.retry()" />
       } @else if (p.data.status !== 'ok') {
         <app-state-panel kind="unavailable" [message]="p.data.message" />
       } @else if (p.data.total === 0) {

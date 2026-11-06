@@ -5,10 +5,12 @@ import {
   CoverageFilterOptions,
   CoverageHistoryResponse,
   MunicipalityListResponse,
+  VaccinationAnalyticsResponse,
 } from '../../core/models/api.models';
 import {
   CoverageService,
   MunicipalitiesService,
+  VaccinationAnalyticsService,
 } from '../../core/services/api.services';
 import { FilterStore } from '../../core/state/filter-store.service';
 import { CoveragePage } from './coverage.page';
@@ -16,6 +18,16 @@ import { CoveragePage } from './coverage.page';
 describe('CoveragePage', () => {
   let coverageApi: jasmine.SpyObj<CoverageService>;
   let municipalitiesApi: jasmine.SpyObj<MunicipalitiesService>;
+  let analyticsApi: jasmine.SpyObj<VaccinationAnalyticsService>;
+
+  const analyticsResponse: VaccinationAnalyticsResponse = {
+    status: 'ok', message: null, source: 'PNI JSONL local', source_updated_at: null,
+    generated_at: '2025-01-01T00:00:00Z', year: 2024, period_start: '2024-01', period_end: '2024-01', total_doses: 1, statewide: false,
+    dimensions: {},
+    filters: { years: [2024], vaccines: [], age_groups: [], patient_municipalities: [], application_municipalities: [] },
+    monthly: [{ month: '2024-01', doses: 1 }], by_sex: [], by_age_group: [], by_vaccine: [],
+    by_patient_municipality: [], by_application_municipality: [], warnings: [],
+  };
 
   const filters: CoverageFilterOptions = {
     status: 'ok',
@@ -123,16 +135,22 @@ describe('CoveragePage', () => {
       'MunicipalitiesService',
       ['list'],
     );
+    analyticsApi = jasmine.createSpyObj<VaccinationAnalyticsService>(
+      'VaccinationAnalyticsService',
+      ['analytics', 'upload'],
+    );
 
     coverageApi.filters.and.returnValue(of(filters));
     coverageApi.history.and.returnValue(of(createHistory()));
     municipalitiesApi.list.and.returnValue(of(municipalities));
+    analyticsApi.analytics.and.returnValue(of(analyticsResponse));
 
     TestBed.configureTestingModule({
       imports: [CoveragePage],
       providers: [
         { provide: CoverageService, useValue: coverageApi },
         { provide: MunicipalitiesService, useValue: municipalitiesApi },
+        { provide: VaccinationAnalyticsService, useValue: analyticsApi },
       ],
     });
   });
@@ -150,7 +168,9 @@ describe('CoveragePage', () => {
     expect(text).toContain('85');
 
     expect(coverageApi.history).toHaveBeenCalledWith({
+      year: null,
       immunizer: null,
+      deficit_class: null,
       municipality_code: [],
     });
   });
@@ -170,6 +190,49 @@ describe('CoveragePage', () => {
     expect(fixture.nativeElement.textContent).toContain(
       'Déficit médio por ano',
     );
+  });
+
+  it('compares selected municipalities in bars using their latest available year', () => {
+    coverageApi.history.and.returnValue(
+      of(
+        createHistory({
+          series: [
+            {
+              key: '3550308',
+              label: '3550308',
+              points: [
+                { year: 2022, mean_coverage: 75, mean_deficit: 20, records: 2 },
+                { year: 2023, mean_coverage: 80, mean_deficit: 15, records: 2 },
+              ],
+            },
+            {
+              key: '3509502',
+              label: '3509502',
+              points: [{ year: 2022, mean_coverage: 90, mean_deficit: 5, records: 1 }],
+            },
+          ],
+        }),
+      ),
+    );
+
+    const fixture = TestBed.createComponent(CoveragePage);
+    fixture.detectChanges();
+    const select = fixture.nativeElement.querySelector('#h-muni') as HTMLSelectElement;
+
+    for (const code of ['3550308', '3509502']) {
+      select.value = code;
+      select.dispatchEvent(new Event('change'));
+      fixture.detectChanges();
+    }
+
+    expect(fixture.nativeElement.textContent).toContain(
+      'Comparação dos municípios selecionados',
+    );
+    expect(
+      fixture.nativeElement.querySelector(
+        'canvas[aria-label="Comparação de cobertura por município no último ano disponível"]',
+      ),
+    ).not.toBeNull();
   });
 
     it('adds municipalities and does not exceed the maximum of five', () => {

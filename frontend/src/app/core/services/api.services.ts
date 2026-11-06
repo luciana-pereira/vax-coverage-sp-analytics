@@ -1,11 +1,15 @@
-import { Injectable, inject } from '@angular/core';
+import { Injectable, inject, signal } from '@angular/core';
 import { Observable } from 'rxjs';
 
 import {
   CoverageFilterOptions,
+  CoverageByImmunizerResponse,
   CoverageFilters,
   CoverageHistoryResponse,
   CoverageResponse,
+  VaccinationAnalyticsQuery,
+  VaccinationAnalyticsResponse,
+  AnalyticsUploadResponse,
   DataQualityResponse,
   GeoResponse,
   ModelResponse,
@@ -32,6 +36,10 @@ export class CoverageService {
 
   overview(filters: CoverageFilters, rankingLimit = 10): Observable<CoverageResponse> {
     return this.api.get('/coverage', { ...filterQuery(filters), ranking_limit: rankingLimit });
+  }
+
+  byImmunizer(filters: CoverageFilters): Observable<CoverageByImmunizerResponse> {
+    return this.api.get('/coverage/immunizers', filterQuery(filters));
   }
 
   filters(): Observable<CoverageFilterOptions> {
@@ -98,5 +106,31 @@ export class GeoService {
 
   municipalities(): Observable<GeoResponse> {
     return this.api.get('/geo/municipalities');
+  }
+}
+
+@Injectable({ providedIn: 'root' })
+export class VaccinationAnalyticsService {
+  private readonly api = inject(ApiClient);
+
+  analytics(query: VaccinationAnalyticsQuery = {}): Observable<VaccinationAnalyticsResponse> {
+    return this.api.get('/analytics', { ...query });
+  }
+
+  upload(file: File): Observable<AnalyticsUploadResponse> {
+    return this.api.post('/analytics/upload', file, {
+      'Content-Type': 'text/csv',
+      'X-File-Name': file.name,
+    });
+  }
+}
+
+@Injectable({ providedIn: 'root' })
+export class VaccinationAnalyticsSession {
+  private readonly tokenState = signal<string | null>(null);
+  readonly sourceToken = this.tokenState.asReadonly();
+
+  useSourceToken(token: string | null): void {
+    this.tokenState.set(token);
   }
 }

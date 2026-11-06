@@ -8,6 +8,8 @@ from ml.features.build_features import DEFICIT_BINS, DEFICIT_LABELS
 
 from ..repositories.coverage_repository import CoverageFilter, CoverageRepository
 from ..schemas.coverage import (
+    CoverageByImmunizerItem,
+    CoverageByImmunizerResponse,
     CoverageFilterOptions,
     CoverageHistoryPoint,
     CoverageHistoryResponse,
@@ -106,6 +108,22 @@ class CoverageService:
             years=options["years"],
             immunizers=options["immunizers"],
             deficit_classes=classes,
+        )
+
+    def by_immunizer(self, flt: CoverageFilter) -> CoverageByImmunizerResponse:
+        message = unavailable_message(self.repo)
+        if message:
+            return CoverageByImmunizerResponse(status="data_unavailable", message=message)
+        return CoverageByImmunizerResponse(
+            status="ok",
+            items=[
+                CoverageByImmunizerItem(
+                    immunizer=row["immunizer"],
+                    mean_coverage=round_value(row["mean_coverage"]),
+                    mean_deficit=round_value(row["mean_deficit"]),
+                )
+                for row in self.repo.by_immunizer(flt)
+            ],
         )
 
     def history(self, flt: CoverageFilter) -> CoverageHistoryResponse:

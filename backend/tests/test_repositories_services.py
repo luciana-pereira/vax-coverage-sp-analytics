@@ -43,7 +43,12 @@ def test_repository_aggregations(settings):
     history = repo.history(CoverageFilter(municipality_codes=["1100"]), by_municipality=True)
     assert [h["year"] for h in history] == [2022, 2023]
     assert repo.by_immunizer(CoverageFilter(year=2023))[0]["immunizer"] == "X"
-    assert repo.quality()["rows"] == 5
+    quality = repo.quality()
+    assert quality["rows"] == 5
+    assert quality["records_by_year"] == [
+        {"year": 2022, "records": 2},
+        {"year": 2023, "records": 3},
+    ]
 
 
 @pytest.mark.usefixtures("features_file")

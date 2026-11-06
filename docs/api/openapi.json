@@ -24,6 +24,247 @@
                 }
               }
             }
+          },
+          "500": {
+            "description": "Erro interno sanitizado; use request_id para suporte.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/analytics": {
+      "get": {
+        "tags": [
+          "analytics"
+        ],
+        "summary": "Doses agregadas por período e dimensões",
+        "description": "Retorna agregados mensais, por sexo, faixa etária, vacina e município. Município do paciente e município do estabelecimento permanecem separados. Identificadores pessoais e linhas individuais nunca são retornados.",
+        "operationId": "get_analytics_api_v1_analytics_get",
+        "parameters": [
+          {
+            "name": "year",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "maximum": 2100,
+                  "minimum": 1900
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Year"
+            }
+          },
+          {
+            "name": "vaccine",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 500
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Vaccine"
+            }
+          },
+          {
+            "name": "age_group",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "0-4",
+                    "60+"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Age Group"
+            }
+          },
+          {
+            "name": "municipality_code",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 10
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Municipality Code"
+            }
+          },
+          {
+            "name": "municipality_basis",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "patient",
+                "application"
+              ],
+              "type": "string",
+              "default": "patient",
+              "title": "Municipality Basis"
+            }
+          },
+          {
+            "name": "source_token",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 64
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Source Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VaccinationAnalyticsResponse"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "A sessão de CSV expirou."
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/analytics/pni": {
+      "post": {
+        "tags": [
+          "analytics"
+        ],
+        "summary": "Atualizar agregados pela API PNI configurada",
+        "description": "Consulta páginas da API PNI e agrega no backend. Os registros individuais da resposta, incluindo IDs, nunca são gravados nem retornados. A operação pode ser demorada.",
+        "operationId": "refresh_pni_api_v1_analytics_pni_post",
+        "parameters": [
+          {
+            "name": "year",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 2100,
+              "minimum": 2000,
+              "default": 2024,
+              "title": "Year"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnalyticsUploadResponse"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "A fonte PNI está indisponível ou retornou dados inválidos."
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/analytics/upload": {
+      "post": {
+        "tags": [
+          "analytics"
+        ],
+        "summary": "Validar e agregar CSV de vacinação",
+        "description": "Aceita CSV de até 25 MiB e 500.000 linhas, agrega em memória e retorna somente contagens. O conteúdo individual não é gravado nem enviado ao frontend.",
+        "operationId": "upload_csv_api_v1_analytics_upload_post",
+        "requestBody": {
+          "content": {
+            "text/csv": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnalyticsUploadResponse"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "CSV excede o limite."
+          },
+          "415": {
+            "description": "Tipo de conteúdo inválido."
+          },
+          "422": {
+            "description": "Nome, schema, encoding ou conteúdo inválido."
           }
         }
       }
@@ -180,12 +421,22 @@
               }
             }
           },
-          "422": {
-            "description": "Validation Error",
+          "500": {
+            "description": "Erro interno sanitizado; use request_id para suporte.",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Parâmetros ou dados inválidos.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -208,6 +459,187 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/CoverageFilterOptions"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Erro interno sanitizado; use request_id para suporte.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Parâmetros ou dados inválidos.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/coverage/immunizers": {
+      "get": {
+        "tags": [
+          "coverage"
+        ],
+        "summary": "Cobertura e déficit por imunizante",
+        "description": "Agrega cobertura e déficit médios por imunizante usando os filtros aplicados. Sem dimensões vacinais ou dataset válido, retorna `data_unavailable`.",
+        "operationId": "get_coverage_by_immunizer_api_v1_coverage_immunizers_get",
+        "parameters": [
+          {
+            "name": "year",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "maximum": 2100,
+                  "minimum": 1900
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Ano exato.",
+              "title": "Year"
+            },
+            "description": "Ano exato."
+          },
+          {
+            "name": "year_from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "maximum": 2100,
+                  "minimum": 1900
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Ano inicial.",
+              "title": "Year From"
+            },
+            "description": "Ano inicial."
+          },
+          {
+            "name": "year_to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "maximum": 2100,
+                  "minimum": 1900
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Ano final.",
+              "title": "Year To"
+            },
+            "description": "Ano final."
+          },
+          {
+            "name": "immunizer",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Imunizante.",
+              "title": "Immunizer"
+            },
+            "description": "Imunizante."
+          },
+          {
+            "name": "municipality_code",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Código(s) do município; repita o parâmetro.",
+              "title": "Municipality Code"
+            },
+            "description": "Código(s) do município; repita o parâmetro."
+          },
+          {
+            "name": "deficit_class",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Classe de déficit das linhas (baixo/moderado/alto).",
+              "title": "Deficit Class"
+            },
+            "description": "Classe de déficit das linhas (baixo/moderado/alto)."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CoverageByImmunizerResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Erro interno sanitizado; use request_id para suporte.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Parâmetros ou dados inválidos.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -353,12 +785,22 @@
               }
             }
           },
-          "422": {
-            "description": "Validation Error",
+          "500": {
+            "description": "Erro interno sanitizado; use request_id para suporte.",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Parâmetros ou dados inválidos.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -527,12 +969,22 @@
               }
             }
           },
-          "422": {
-            "description": "Validation Error",
+          "500": {
+            "description": "Erro interno sanitizado; use request_id para suporte.",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Parâmetros ou dados inválidos.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -687,8 +1139,8 @@
               }
             }
           },
-          "404": {
-            "description": "Município sem registros.",
+          "500": {
+            "description": "Erro interno sanitizado; use request_id para suporte.",
             "content": {
               "application/json": {
                 "schema": {
@@ -698,11 +1150,21 @@
             }
           },
           "422": {
-            "description": "Validation Error",
+            "description": "Parâmetros ou dados inválidos.",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Município sem registros.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -822,12 +1284,22 @@
               }
             }
           },
-          "422": {
-            "description": "Validation Error",
+          "500": {
+            "description": "Erro interno sanitizado; use request_id para suporte.",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Parâmetros ou dados inválidos.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -853,6 +1325,16 @@
                 }
               }
             }
+          },
+          "500": {
+            "description": "Erro interno sanitizado; use request_id para suporte.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -872,6 +1354,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/DataQualityResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Erro interno sanitizado; use request_id para suporte.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -897,6 +1389,16 @@
                 }
               }
             }
+          },
+          "500": {
+            "description": "Erro interno sanitizado; use request_id para suporte.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -904,6 +1406,423 @@
   },
   "components": {
     "schemas": {
+      "AnalyticsCategory": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "doses": {
+            "type": "integer",
+            "title": "Doses"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "label",
+          "doses"
+        ],
+        "title": "AnalyticsCategory"
+      },
+      "AnalyticsFilters": {
+        "properties": {
+          "years": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Years"
+          },
+          "vaccines": {
+            "items": {
+              "$ref": "#/components/schemas/AnalyticsVaccineFilter"
+            },
+            "type": "array",
+            "title": "Vaccines"
+          },
+          "age_groups": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Age Groups"
+          },
+          "patient_municipalities": {
+            "items": {
+              "$ref": "#/components/schemas/AnalyticsMunicipalityFilter"
+            },
+            "type": "array",
+            "title": "Patient Municipalities"
+          },
+          "application_municipalities": {
+            "items": {
+              "$ref": "#/components/schemas/AnalyticsMunicipalityFilter"
+            },
+            "type": "array",
+            "title": "Application Municipalities"
+          }
+        },
+        "type": "object",
+        "title": "AnalyticsFilters"
+      },
+      "AnalyticsMonth": {
+        "properties": {
+          "month": {
+            "type": "string",
+            "title": "Month"
+          },
+          "doses": {
+            "type": "integer",
+            "title": "Doses"
+          }
+        },
+        "type": "object",
+        "required": [
+          "month",
+          "doses"
+        ],
+        "title": "AnalyticsMonth"
+      },
+      "AnalyticsMunicipalityCount": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "title": "Code"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "doses": {
+            "type": "integer",
+            "title": "Doses"
+          }
+        },
+        "type": "object",
+        "required": [
+          "code",
+          "doses"
+        ],
+        "title": "AnalyticsMunicipalityCount"
+      },
+      "AnalyticsMunicipalityFilter": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "title": "Code"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "code"
+        ],
+        "title": "AnalyticsMunicipalityFilter"
+      },
+      "AnalyticsUploadResponse": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "ok",
+              "data_unavailable"
+            ],
+            "title": "Status"
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source"
+          },
+          "source_updated_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Updated At"
+          },
+          "generated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Generated At"
+          },
+          "year": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Year"
+          },
+          "period_start": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Period Start"
+          },
+          "period_end": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Period End"
+          },
+          "total_doses": {
+            "type": "integer",
+            "title": "Total Doses",
+            "default": 0
+          },
+          "statewide": {
+            "type": "boolean",
+            "title": "Statewide",
+            "default": false
+          },
+          "dimensions": {
+            "additionalProperties": {
+              "type": "boolean"
+            },
+            "type": "object",
+            "title": "Dimensions"
+          },
+          "filters": {
+            "$ref": "#/components/schemas/AnalyticsFilters"
+          },
+          "monthly": {
+            "items": {
+              "$ref": "#/components/schemas/AnalyticsMonth"
+            },
+            "type": "array",
+            "title": "Monthly"
+          },
+          "by_sex": {
+            "items": {
+              "$ref": "#/components/schemas/AnalyticsCategory"
+            },
+            "type": "array",
+            "title": "By Sex"
+          },
+          "by_age_group": {
+            "items": {
+              "$ref": "#/components/schemas/AnalyticsCategory"
+            },
+            "type": "array",
+            "title": "By Age Group"
+          },
+          "by_vaccine": {
+            "items": {
+              "$ref": "#/components/schemas/AnalyticsVaccineCount"
+            },
+            "type": "array",
+            "title": "By Vaccine"
+          },
+          "by_patient_municipality": {
+            "items": {
+              "$ref": "#/components/schemas/AnalyticsMunicipalityCount"
+            },
+            "type": "array",
+            "title": "By Patient Municipality"
+          },
+          "by_application_municipality": {
+            "items": {
+              "$ref": "#/components/schemas/AnalyticsMunicipalityCount"
+            },
+            "type": "array",
+            "title": "By Application Municipality"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Warnings"
+          },
+          "accepted_rows": {
+            "type": "integer",
+            "title": "Accepted Rows",
+            "default": 0
+          },
+          "source_token": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Token"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "generated_at"
+        ],
+        "title": "AnalyticsUploadResponse"
+      },
+      "AnalyticsVaccineCount": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Code"
+          },
+          "abbreviation": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Abbreviation"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "doses": {
+            "type": "integer",
+            "title": "Doses"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "label",
+          "doses"
+        ],
+        "title": "AnalyticsVaccineCount"
+      },
+      "AnalyticsVaccineFilter": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Code"
+          },
+          "abbreviation": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Abbreviation"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "label"
+        ],
+        "title": "AnalyticsVaccineFilter"
+      },
       "ArtifactStatus": {
         "properties": {
           "name": {
@@ -983,6 +1902,78 @@
           "null_ratio"
         ],
         "title": "ColumnQuality"
+      },
+      "CoverageByImmunizerItem": {
+        "properties": {
+          "immunizer": {
+            "type": "string",
+            "title": "Immunizer"
+          },
+          "mean_coverage": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mean Coverage"
+          },
+          "mean_deficit": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mean Deficit"
+          }
+        },
+        "type": "object",
+        "required": [
+          "immunizer",
+          "mean_coverage",
+          "mean_deficit"
+        ],
+        "title": "CoverageByImmunizerItem"
+      },
+      "CoverageByImmunizerResponse": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "ok",
+              "data_unavailable"
+            ],
+            "title": "Status"
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/CoverageByImmunizerItem"
+            },
+            "type": "array",
+            "title": "Items"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "title": "CoverageByImmunizerResponse"
       },
       "CoverageFilterOptions": {
         "properties": {
@@ -1349,6 +2340,13 @@
             },
             "type": "array",
             "title": "Columns"
+          },
+          "records_by_year": {
+            "items": {
+              "$ref": "#/components/schemas/YearRecordCount"
+            },
+            "type": "array",
+            "title": "Records By Year"
           }
         },
         "type": "object",
@@ -1387,11 +2385,17 @@
             "examples": [
               "Município não encontrado."
             ]
+          },
+          "request_id": {
+            "type": "string",
+            "title": "Request Id",
+            "description": "Identificador para correlacionar com o log do servidor."
           }
         },
         "type": "object",
         "required": [
-          "detail"
+          "detail",
+          "request_id"
         ],
         "title": "ErrorResponse"
       },
@@ -2174,6 +3178,165 @@
         ],
         "title": "SplitInfo"
       },
+      "VaccinationAnalyticsResponse": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "ok",
+              "data_unavailable"
+            ],
+            "title": "Status"
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source"
+          },
+          "source_updated_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Updated At"
+          },
+          "generated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Generated At"
+          },
+          "year": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Year"
+          },
+          "period_start": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Period Start"
+          },
+          "period_end": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Period End"
+          },
+          "total_doses": {
+            "type": "integer",
+            "title": "Total Doses",
+            "default": 0
+          },
+          "statewide": {
+            "type": "boolean",
+            "title": "Statewide",
+            "default": false
+          },
+          "dimensions": {
+            "additionalProperties": {
+              "type": "boolean"
+            },
+            "type": "object",
+            "title": "Dimensions"
+          },
+          "filters": {
+            "$ref": "#/components/schemas/AnalyticsFilters"
+          },
+          "monthly": {
+            "items": {
+              "$ref": "#/components/schemas/AnalyticsMonth"
+            },
+            "type": "array",
+            "title": "Monthly"
+          },
+          "by_sex": {
+            "items": {
+              "$ref": "#/components/schemas/AnalyticsCategory"
+            },
+            "type": "array",
+            "title": "By Sex"
+          },
+          "by_age_group": {
+            "items": {
+              "$ref": "#/components/schemas/AnalyticsCategory"
+            },
+            "type": "array",
+            "title": "By Age Group"
+          },
+          "by_vaccine": {
+            "items": {
+              "$ref": "#/components/schemas/AnalyticsVaccineCount"
+            },
+            "type": "array",
+            "title": "By Vaccine"
+          },
+          "by_patient_municipality": {
+            "items": {
+              "$ref": "#/components/schemas/AnalyticsMunicipalityCount"
+            },
+            "type": "array",
+            "title": "By Patient Municipality"
+          },
+          "by_application_municipality": {
+            "items": {
+              "$ref": "#/components/schemas/AnalyticsMunicipalityCount"
+            },
+            "type": "array",
+            "title": "By Application Municipality"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Warnings"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "generated_at"
+        ],
+        "title": "VaccinationAnalyticsResponse"
+      },
       "ValidationError": {
         "properties": {
           "loc": {
@@ -2213,6 +3376,24 @@
           "type"
         ],
         "title": "ValidationError"
+      },
+      "YearRecordCount": {
+        "properties": {
+          "year": {
+            "type": "integer",
+            "title": "Year"
+          },
+          "records": {
+            "type": "integer",
+            "title": "Records"
+          }
+        },
+        "type": "object",
+        "required": [
+          "year",
+          "records"
+        ],
+        "title": "YearRecordCount"
       }
     }
   }

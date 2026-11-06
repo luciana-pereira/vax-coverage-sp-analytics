@@ -1,5 +1,8 @@
 import pandas as pd
+import pytest
 
+from ml.cli import cmd_features
+from ml.config import load_settings
 from ml.features.build_features import (
     TARGET_COLUMN,
     build_ml_dataset,
@@ -72,3 +75,43 @@ def test_feature_columns_exclude_target_and_current_class(processed_frame):
     features = build_vaccination_features(processed_frame, "doses", "population", "year")
     cols = feature_columns(build_ml_dataset(features))
     assert "deficit_class" not in cols and TARGET_COLUMN not in cols
+
+
+def test_features_cli_blocks_dataset_without_immunizer(data_dir):
+    settings = load_settings()
+    pd.DataFrame(
+        {
+            "municipality_code": ["350010"],
+            "year": [2024],
+            "doses": [1],
+            "population": [10],
+        }
+    ).to_parquet(settings.processed_file, index=False)
+
+    with pytest.raises(RuntimeError, match="immunizer"):
+        cmd_features(settings)
+
+    assert not settings.features_path.exists()
+
+
+def test_features_cli_blocks_missing_immunizer_target_meta(data_dir):
+    settings = load_settings()
+    frame = pd.DataFrame(
+        {
+            "municipality_code": ["350010"],
+            "year": [2024],
+            "immunizer": ["SCR"],
+            "doses": [1],
+            "population": [10],
+        }
+    )
+    frame.to_parquet(settings.processed_file, index=False)
+    frame[["municipality_code", "year", "immunizer", "population"]].to_csv(
+        settings.target_population_path,
+        index=False,
+    )
+
+    with pytest.raises(RuntimeError, match="Metas de cobertura"):
+        cmd_features(settings)
+
+    assert not settings.features_path.exists()
