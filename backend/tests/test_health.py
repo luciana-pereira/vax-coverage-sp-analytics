@@ -4,6 +4,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 import app.main as app_main
+from app.core.config import build_settings
 
 
 def test_health(client):
@@ -48,6 +49,44 @@ def test_cors_allows_configured_origin_and_csv_upload_preflight(settings, monkey
         content=b"",
     )
     assert upload.headers["access-control-allow-origin"] == origin
+
+
+@pytest.mark.parametrize("method", ["GET", "POST", "PUT", "DELETE", "OPTIONS"])
+def test_cors_preflight_reads_environment_origin(monkeypatch, method):
+    origin = "https://vax-coverage.vercel.app"
+    monkeypatch.setenv("CORS_ORIGINS", f"http://localhost:4200, {origin}")
+    monkeypatch.setattr(app_main, "get_settings", build_settings)
+    client = TestClient(app_main.create_app())
+
+    response = client.options(
+        "/api/v1/health",
+        headers={
+            "Origin": origin,
+            "Access-Control-Request-Method": method,
+            "Access-Control-Request-Headers": "content-type",
+        },
+    )
+    assert response.status_code == 200
+    assert response.headers["access-control-allow-origin"] == origin
+    assert method in response.headers["access-control-allow-methods"].split(", ")
+
+
+def test_cors_preflight_rejects_unconfigured_origin(settings, monkeypatch):
+    monkeypatch.setattr(
+        app_main,
+        "get_settings",
+        lambda: replace(settings, cors_origins=["https://vax-coverage.vercel.app"]),
+    )
+    client = TestClient(app_main.create_app())
+    response = client.options(
+        "/api/v1/health",
+        headers={
+            "Origin": "https://other.example",
+            "Access-Control-Request-Method": "PUT",
+        },
+    )
+    assert response.status_code == 400
+    assert "access-control-allow-origin" not in response.headers
 
 
 @pytest.mark.parametrize(

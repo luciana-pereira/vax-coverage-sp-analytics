@@ -1,7 +1,7 @@
 import { HttpErrorResponse, HttpInterceptorFn } from '@angular/common/http';
 import { TimeoutError, catchError, throwError, timeout } from 'rxjs';
 
-export const API_REQUEST_TIMEOUT_MS = 30_000;
+export const API_REQUEST_TIMEOUT_MS = 90_000;
 
 export class ApiError extends Error {
   constructor(

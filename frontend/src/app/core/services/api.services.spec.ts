@@ -109,11 +109,28 @@ describe('API services', () => {
 
   it('turns an API timeout into a recoverable network message', fakeAsync(() => {
     let message = '';
+    expect(API_REQUEST_TIMEOUT_MS).toBe(90_000);
     TestBed.inject(CoverageService).filters().subscribe({ error: (error: Error) => (message = error.message) });
     http.expectOne('http://api.test/api/v1/coverage/filters');
 
     tick(API_REQUEST_TIMEOUT_MS);
 
     expect(message).toContain('demorou para responder');
+  }));
+
+  it('allows a slow response beyond the previous 30-second timeout', fakeAsync(() => {
+    let completed = false;
+    let message = '';
+    TestBed.inject(CoverageService).filters().subscribe({
+      next: () => (completed = true),
+      error: (error: Error) => (message = error.message),
+    });
+    const req = http.expectOne('http://api.test/api/v1/coverage/filters');
+
+    tick(31_000);
+    expect(message).toBe('');
+    expect(req.cancelled).toBeFalse();
+    req.flush({});
+    expect(completed).toBeTrue();
   }));
 });
