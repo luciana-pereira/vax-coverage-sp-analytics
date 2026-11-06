@@ -1,10 +1,14 @@
 import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
-import { TestBed } from '@angular/core/testing';
+import { fakeAsync, TestBed, tick } from '@angular/core/testing';
 
 import { API_BASE_URL } from '../config/api-config';
-import { errorInterceptor } from '../interceptors/error.interceptor';
-import { CoverageService, MunicipalitiesService } from './api.services';
+import { API_REQUEST_TIMEOUT_MS, errorInterceptor } from '../interceptors/error.interceptor';
+import {
+  CoverageService,
+  MunicipalitiesService,
+  VaccinationAnalyticsService,
+} from './api.services';
 
 describe('API services', () => {
   let http: HttpTestingController;
@@ -45,6 +49,37 @@ describe('API services', () => {
     req.flush({});
   });
 
+  it('requests immunizer coverage with the active filters', () => {
+    TestBed.inject(CoverageService).byImmunizer({ year: 2024, deficit_class: 'alto' }).subscribe();
+
+    const req = http.expectOne((r) => r.url === 'http://api.test/api/v1/coverage/immunizers');
+    expect(req.request.params.get('year')).toBe('2024');
+    expect(req.request.params.get('deficit_class')).toBe('alto');
+    req.flush({ status: 'ok', message: null, items: [] });
+  });
+
+  it('requests filtered aggregated vaccination analytics', () => {
+    TestBed.inject(VaccinationAnalyticsService)
+      .analytics({ year: 2024, vaccine: 'key-1', age_group: '0-4', municipality_basis: 'patient' })
+      .subscribe();
+
+    const req = http.expectOne('http://api.test/api/v1/analytics?year=2024&vaccine=key-1&age_group=0-4&municipality_basis=patient');
+    expect(req.request.method).toBe('GET');
+    req.flush({});
+  });
+
+  it('uploads CSV bytes directly without retaining a FormData payload', () => {
+    const file = new File(['dt_vacina,sg_imunobiologico\n2024-01-01,BCG'], 'doses.csv', { type: 'text/csv' });
+    TestBed.inject(VaccinationAnalyticsService).upload(file).subscribe();
+
+    const req = http.expectOne('http://api.test/api/v1/analytics/upload');
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body).toBe(file);
+    expect(req.request.headers.get('Content-Type')).toBe('text/csv');
+    expect(req.request.headers.get('X-File-Name')).toBe('doses.csv');
+    req.flush({});
+  });
+
   it('encodes the municipality code in the detail path', () => {
     TestBed.inject(MunicipalitiesService).detail('a/b').subscribe();
     http.expectOne('http://api.test/api/v1/municipalities/a%2Fb').flush({});
@@ -71,4 +106,14 @@ describe('API services', () => {
     });
     http.expectOne('http://api.test/api/v1/coverage/filters').error(new ProgressEvent('error'));
   });
+
+  it('turns an API timeout into a recoverable network message', fakeAsync(() => {
+    let message = '';
+    TestBed.inject(CoverageService).filters().subscribe({ error: (error: Error) => (message = error.message) });
+    http.expectOne('http://api.test/api/v1/coverage/filters');
+
+    tick(API_REQUEST_TIMEOUT_MS);
+
+    expect(message).toContain('demorou para responder');
+  }));
 });

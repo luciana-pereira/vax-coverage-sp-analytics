@@ -6,6 +6,7 @@ import pandas as pd
 
 from pipeline.config import load_settings
 from pipeline.transform.transformer import attach_target_population
+from pipeline.validate.validator import validate_population_alignment
 
 from .csv_reader import read_pni_csv
 from .filter import filter_pni_chunk
@@ -81,10 +82,13 @@ def _attach_population(
 
     population = pd.read_csv(settings.population_path)
 
-    return attach_target_population(
-        df,
-        population,
-    )
+    result = attach_target_population(df, population)
+    issues = validate_population_alignment(result, population)
+    if issues:
+        raise RuntimeError(
+            "Ingestão CSV sem denominadores válidos: " + "; ".join(issues)
+        )
+    return result
 
 def process_pni_csv(
     path: Path,

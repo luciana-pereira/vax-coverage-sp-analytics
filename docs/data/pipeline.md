@@ -19,10 +19,10 @@ O extrator aceita respostas em lista, nos envelopes genéricos (`data`, `items`,
 
 ## transform
 
-1. Lê o JSONL, deriva `year` de `data_vacina`, conta um registro como uma dose quando `codigo_documento` está presente e filtra `sigla_uf_paciente` pela UF configurada.
-2. Normaliza nomes de colunas e remove linhas idênticas (`DEDUPLICATE_RAW=true`). A regra de duplicidade ainda requer validação na extração integral.
-3. Aplica `data/external/column_mapping.json`, atualmente com `codigo_municipio_paciente`, `nome_municipio_paciente` e `codigo_vacina`.
-4. Se não houver `population` canônica, lê `data/external/target_population.csv`; sem esse arquivo, falha. A população total da SIDRA não é usada como denominador.
+1. Lê o JSONL, deriva `year` de `dt_vacina` ou `data_vacina`, conta cada registro PNI como uma dose (quando há `codigo_documento` ou `sg_imunobiologico`) e filtra `sigla_uf_paciente` quando disponível.
+2. Normaliza nomes de colunas. `DEDUPLICATE_RAW=false` é obrigatório para o raw reduzido sem identificador único; linhas iguais podem ser doses distintas.
+3. Aplica `data/external/column_mapping.json` ao schema do raw local: `co_municipio_paciente`, `no_municipio_paciente`, `sg_imunobiologico`.
+4. Sempre exige `data/external/target_population.csv` e anexa pelo município, ano e imunizante. População embutida no bruto e população total SIDRA são ignoradas como denominador. Ausência, duplicidade, divergência ou falta de correspondência bloqueia a escrita do Parquet.
 
 ### Mapeamento de colunas
 
@@ -30,21 +30,21 @@ O extrator aceita respostas em lista, nos envelopes genéricos (`data`, `items`,
 
 ```json
 {
-  "municipality_code": "codigo_municipio_paciente",
-  "municipality_name": "nome_municipio_paciente",
-  "immunizer": "codigo_vacina"
+  "municipality_code": "co_municipio_paciente",
+  "municipality_name": "no_municipio_paciente",
+  "immunizer": "sg_imunobiologico"
 }
 ```
 
-`year` e `doses` são derivados pelo loader para o schema PNI observado. `municipality_name` e `immunizer` são opcionais no contrato geral; no PNI, `codigo_vacina` permanece código bruto até existir cruzamento validado.
+`year` e `doses` são derivados pelo loader para o raw reduzido. O endpoint PNI completo tem schema diferente; seu `codigo_vacina` não é mapeado para `immunizer` sem cruzamento oficial.
 
 ### População-alvo
 
-`data/external/target_population.csv` com `municipality_code, year, [immunizer], population`. Inclua `immunizer` para denominadores por vacina/faixa etária; o join usa essa dimensão quando presente. A ausência do arquivo é erro explícito, e municípios sem correspondência ficam sem população/cobertura válida.
+`data/external/target_population.csv` com `municipality_code, year, immunizer, population`. O target deve ser único por chave e corresponder a cada grupo do Parquet. O validador compara os valores de `population` com o CSV; município sem correspondência, denominação duplicada ou divergente invalida o dataset.
 
 ## validate
 
-Verifica: colunas obrigatórias (`municipality_code`, `year`, `doses`, `population`), dataset vazio, duplicatas, valores negativos, população zero e anos não numéricos.
+Verifica: `municipality_code`, `immunizer`, `year`, `doses`, `population`, nulos, tipos numéricos, duplicatas, valores negativos, população zero, anos inválidos e alinhamento exato com `target_population.csv`.
 
 ## load
 
@@ -55,7 +55,8 @@ Cria/substitui a tabela `vaccination` no DuckDB para análise local. A API lê o
 | Lacuna | Impacto |
 |---|---|
 | Extração PNI integral e duplicidade | A amostra de uma página não valida todos os registros nem a política de deduplicação |
-| Cruzamento dos códigos PNI | `codigo_vacina` não foi mapeado oficialmente para SCR/INF3 ou grupos etários |
+| API PNI completa | `codigo_vacina` requer cruzamento oficial; o raw reduzido local usa `sg_imunobiologico` |
 | População-alvo por imunizante | `target_population.csv` não está presente; sem ele não há cobertura derivada do PNI |
-| Metas por imunizante | Usa a meta padrão enquanto o arquivo não existir |
-| Filtro por UF/município (`TARGET_UF`) | Variável reservada; o filtro ainda não existe |
+| Mapeamento de idade para vacina | O helper requer mapping explícito; não há associação aprovada para `SCR`/`INF3` |
+| Metas por imunizante | `coverage_targets.json` não está presente; ML bloqueia o default não referenciado |
+| GeoJSON municipal | Não está presente; o mapa permanece indisponível |

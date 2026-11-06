@@ -93,6 +93,10 @@ class TestWithFeatures:
         assert dataset["municipalities"] == 3
         assert (dataset["year_min"], dataset["year_max"]) == (2022, 2023)
         assert dataset["missing_columns"] == []
+        assert dataset["records_by_year"] == [
+            {"year": 2022, "records": 2},
+            {"year": 2023, "records": 3},
+        ]
         assert all(c["null_count"] == 0 for c in dataset["columns"])
         features = next(a for a in body["artifacts"] if a["name"] == "features")
         assert features["exists"] and features["size_bytes"] > 0
@@ -179,3 +183,16 @@ def test_coverage_without_immunizer_dimension_is_unavailable(settings, make_clie
     quality = make_client().get("/api/v1/data-quality").json()
     assert quality["status"] == "data_unavailable"
     assert "immunizer" in quality["dataset"]["missing_columns"]
+
+
+@pytest.mark.usefixtures("features_file")
+def test_coverage_by_immunizer_uses_real_aggregates(client):
+    response = client.get("/api/v1/coverage/immunizers")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "ok"
+    assert body["items"] == [
+        {"immunizer": "X", "mean_coverage": 84.0, "mean_deficit": 11.25},
+        {"immunizer": "Y", "mean_coverage": 60.0, "mean_deficit": 35.0},
+    ]

@@ -8,7 +8,7 @@ Esquema **canônico** produzido pelo pipeline e usado por ML, API e dashboard. O
 |---|---|---|---|
 | `municipality_code` | Código do município | SUS/IBGE | Chave de integração; obrigatório |
 | `municipality_name` | Nome do município | SUS/IBGE | Opcional; nunca usar como chave |
-| `immunizer` | Código/nome do imunizante | SUS | Obrigatório para a API de cobertura; `codigo_vacina` permanece código bruto até haver cruzamento oficial |
+| `immunizer` | Sigla do imunizante | PNI | Obrigatório; no raw local é `sg_imunobiologico`. `codigo_vacina` da API completa não é equivalente sem cruzamento oficial |
 | `year` | Ano de referência | SUS | Inteiro; obrigatório |
 | `doses` | Doses aplicadas | SUS | Numérico ≥ 0; somadas por chave na junção com a população |
 | `population` | População-alvo | IBGE/estimativa apropriada | Numérico > 0; fornecida externamente |
@@ -20,7 +20,7 @@ Contém as colunas acima mais:
 | Campo | Significado | Regra |
 |---|---|---|
 | `coverage` | Cobertura (%) | `doses / population × 100`; nulo se população = 0 |
-| `coverage_target` | Meta (%) | Meta padrão (`COVERAGE_TARGET_DEFAULT`) ou meta do imunizante |
+| `coverage_target` | Meta (%) | Meta explicitamente configurada por imunizante; ML bloqueia quando a meta não está configurada |
 | `deficit` | Déficit (p.p.) | `max(0, coverage_target − coverage)` |
 | `deficit_class` | Classe | `baixo` ≤ 5, `moderado` ≤ 15, `alto` > 15 |
 
@@ -39,6 +39,6 @@ Features mais:
 | Arquivo | Formato |
 |---|---|
 | `data/external/column_mapping.json` | `{"<coluna canônica>": "<coluna da fonte>"}` |
-| `data/external/target_population.csv` | `municipality_code, year, [immunizer], population` |
-| `data/external/coverage_targets.json` | `{"<imunizante>": <meta %>}` (opcional) |
+| `data/external/target_population.csv` | `municipality_code, year, immunizer, population` (necessário para cobertura) |
+| `data/external/coverage_targets.json` | `{"<imunizante>": <meta %>}` (necessário para gerar features/ML) |
 | `data/external/sp_municipios.geojson` | GeoJSON `FeatureCollection` municipal (opcional, para o mapa) |

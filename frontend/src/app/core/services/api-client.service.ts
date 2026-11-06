@@ -16,6 +16,10 @@ export class ApiClient {
     return this.http.get<T>(`${this.baseUrl}${path}`, { params: this.toParams(query) });
   }
 
+  post<T>(path: string, body: unknown, headers: Record<string, string> = {}): Observable<T> {
+    return this.http.post<T>(`${this.baseUrl}${path}`, body, { headers });
+  }
+
   private toParams(query: Record<string, QueryValue>): HttpParams {
     let params = new HttpParams();
     for (const [key, value] of Object.entries(query)) {

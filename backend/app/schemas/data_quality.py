@@ -21,6 +21,11 @@ class ColumnQuality(BaseModel):
     null_ratio: float
 
 
+class YearRecordCount(BaseModel):
+    year: int
+    records: int
+
+
 class DatasetQuality(BaseModel):
     rows: int
     municipalities: int | None = None
@@ -29,6 +34,7 @@ class DatasetQuality(BaseModel):
     duplicate_rows: int
     missing_columns: list[str] = Field(description="Colunas esperadas ausentes.")
     columns: list[ColumnQuality]
+    records_by_year: list[YearRecordCount] = Field(default_factory=list)
 
 
 class DataQualityResponse(BaseModel):

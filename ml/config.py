@@ -19,9 +19,22 @@ def _path(name: str, default: Path) -> Path:
     return value if value.is_absolute() else ROOT / value
 
 
+def _data_path(name: str, default_relative: str, data_dir: Path) -> Path:
+    value = os.getenv(name)
+    if not value:
+        return data_dir / default_relative
+    path = Path(value)
+    if path.is_absolute():
+        return path
+    if path.parts and path.parts[0].lower() == "data":
+        path = Path(*path.parts[1:])
+    return data_dir / path
+
+
 @dataclass(frozen=True)
 class MlSettings:
     processed_file: Path
+    target_population_path: Path
     features_path: Path
     ml_dataset_path: Path
     model_path: Path
@@ -42,9 +55,18 @@ def load_coverage_targets(path: Path) -> dict[str, float]:
 
 def load_settings() -> MlSettings:
     data_dir = _path("DATA_DIR", ROOT / "data")
-    targets_path = _path("COVERAGE_TARGETS_PATH", data_dir / "external" / "coverage_targets.json")
+    targets_path = _data_path(
+        "COVERAGE_TARGETS_PATH",
+        "external/coverage_targets.json",
+        data_dir,
+    )
     return MlSettings(
         processed_file=data_dir / "processed" / "vaccination.parquet",
+        target_population_path=_data_path(
+            "TARGET_POPULATION_PATH",
+            "external/target_population.csv",
+            data_dir,
+        ),
         features_path=_path("FEATURES_PATH", data_dir / "processed" / "features.parquet"),
         ml_dataset_path=_path("ML_DATASET_PATH", data_dir / "processed" / "ml_dataset.parquet"),
         model_path=_path("MODEL_PATH", data_dir / "models" / "vax_deficit_model.joblib"),

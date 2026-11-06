@@ -31,6 +31,9 @@ def validate_dataset(df: pd.DataFrame, required_columns: tuple[str, ...]) -> Val
         return report
 
     report.null_counts = {c: int(n) for c, n in df.isna().sum().items() if n}
+    for column in required_columns:
+        if column in df.columns and df[column].isna().any():
+            report.issues.append(f"'{column}' possui valores nulos")
     report.duplicate_rows = int(df.duplicated().sum())
     if report.duplicate_rows:
         report.issues.append(f"{report.duplicate_rows} linhas duplicadas")
@@ -40,6 +43,8 @@ def validate_dataset(df: pd.DataFrame, required_columns: tuple[str, ...]) -> Val
             values = pd.to_numeric(df[column], errors="coerce")
             if values.isna().all():
                 report.issues.append(f"'{column}' não possui valores numéricos")
+            elif (df[column].notna() & values.isna()).any():
+                report.issues.append(f"'{column}' possui valores não numéricos")
             elif (values < 0).any():
                 report.issues.append(f"'{column}' possui valores negativos")
 
@@ -52,3 +57,59 @@ def validate_dataset(df: pd.DataFrame, required_columns: tuple[str, ...]) -> Val
         report.issues.append("'year' possui valores não numéricos")
 
     return report
+
+
+def validate_population_alignment(
+    dataset: pd.DataFrame,
+    target_population: pd.DataFrame,
+) -> list[str]:
+    keys = ["municipality_code", "year", "immunizer"]
+    required = {*keys, "population"}
+    missing_dataset = required - set(dataset.columns)
+    missing_target = required - set(target_population.columns)
+    issues = []
+
+    if missing_dataset:
+        issues.append(f"dataset sem chaves/denominador: {sorted(missing_dataset)}")
+    if missing_target:
+        issues.append(f"população-alvo sem chaves/denominador: {sorted(missing_target)}")
+    if issues:
+        return issues
+
+    actual = dataset[keys + ["population"]].copy()
+    expected = target_population[keys + ["population"]].copy()
+    actual = actual.rename(columns={"population": "population_dataset"})
+    expected = expected.rename(columns={"population": "population_target"})
+
+    for frame in (actual, expected):
+        frame["municipality_code"] = (
+            pd.to_numeric(frame["municipality_code"], errors="coerce")
+            .astype("Int64")
+            .astype("string")
+        )
+        frame["year"] = (
+            pd.to_numeric(frame["year"], errors="coerce")
+            .astype("Int64")
+            .astype("string")
+        )
+        frame["immunizer"] = frame["immunizer"].astype("string").str.strip()
+    actual["population_dataset"] = pd.to_numeric(actual["population_dataset"], errors="coerce")
+    expected["population_target"] = pd.to_numeric(expected["population_target"], errors="coerce")
+
+    if expected.duplicated(keys).any():
+        issues.append("população-alvo possui chaves município/ano/immunizer duplicadas")
+        return issues
+
+    aligned = actual.merge(expected, on=keys, how="left", indicator=True)
+    unmatched = int((aligned["_merge"] != "both").sum())
+    if unmatched:
+        issues.append(f"{unmatched} grupos município/ano/immunizer sem população-alvo")
+
+    matched = aligned[aligned["_merge"] == "both"]
+    mismatched = matched["population_dataset"] != matched["population_target"]
+    if mismatched.any():
+        issues.append(
+            f"{int(mismatched.sum())} denominadores divergem da população-alvo configurada"
+        )
+
+    return issues

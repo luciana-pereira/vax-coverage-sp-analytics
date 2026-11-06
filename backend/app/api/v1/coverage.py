@@ -4,7 +4,9 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query
 
+from ...schemas.common import QUERY_ERROR_RESPONSES
 from ...schemas.coverage import (
+    CoverageByImmunizerResponse,
     CoverageFilterOptions,
     CoverageHistoryResponse,
     CoverageResponse,
@@ -12,7 +14,7 @@ from ...schemas.coverage import (
 from ...services.coverage_service import CoverageService
 from ..deps import FilterDep, get_coverage_service
 
-router = APIRouter(prefix="/coverage", tags=["coverage"])
+router = APIRouter(prefix="/coverage", tags=["coverage"], responses=QUERY_ERROR_RESPONSES)
 
 ServiceDep = Annotated[CoverageService, Depends(get_coverage_service)]
 
@@ -43,6 +45,19 @@ def get_coverage(
 )
 def get_filters(service: ServiceDep) -> CoverageFilterOptions:
     return service.filter_options()
+
+
+@router.get(
+    "/immunizers",
+    response_model=CoverageByImmunizerResponse,
+    summary="Cobertura e déficit por imunizante",
+    description=(
+        "Agrega cobertura e déficit médios por imunizante usando os filtros aplicados. "
+        "Sem dimensões vacinais ou dataset válido, retorna `data_unavailable`."
+    ),
+)
+def get_coverage_by_immunizer(service: ServiceDep, flt: FilterDep) -> CoverageByImmunizerResponse:
+    return service.by_immunizer(flt)
 
 
 @router.get(

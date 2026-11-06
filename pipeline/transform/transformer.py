@@ -53,6 +53,12 @@ def attach_target_population(
             "População-alvo exige municipality_code, year e population."
         )
 
+    if "immunizer" in df.columns and "immunizer" not in population.columns:
+        raise KeyError(
+            "População-alvo por imunizante exige a coluna 'immunizer'; "
+            "população municipal total não é denominador universal."
+        )
+
     required = {"municipality_code", "year", "doses"}
     missing = required - set(df.columns)
 
@@ -65,6 +71,12 @@ def attach_target_population(
     join_cols = ["municipality_code", "year"]
     if "immunizer" in left.columns and "immunizer" in population.columns:
         join_cols.append("immunizer")
+
+    if population.duplicated(subset=join_cols).any():
+        raise ValueError(
+            f"População-alvo possui chaves duplicadas: {join_cols}. "
+            "Corrija o arquivo antes do join."
+        )
 
     right = population[join_cols + ["population"]].copy()
 
@@ -119,9 +131,7 @@ def attach_target_population(
     )
 
     return grouped.merge(
-        right.drop_duplicates(
-            subset=join_cols
-        ),
+        right,
         on=join_cols,
         how="left",
     )

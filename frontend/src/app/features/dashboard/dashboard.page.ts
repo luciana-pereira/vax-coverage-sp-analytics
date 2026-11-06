@@ -15,6 +15,7 @@ import { FiltersBarComponent } from '../../shared/components/filters-bar.compone
 import { KpiCardComponent } from '../../shared/components/kpi-card.component';
 import { RiskBadgeComponent } from '../../shared/components/risk-badge.component';
 import { StatePanelComponent } from '../../shared/components/state-panel.component';
+import { VaccinationAnalyticsPanelComponent } from '../../shared/components/vaccination-analytics-panel.component';
 import { loadOnChange, loadOnce } from '../../shared/state/load-state';
 import { barChart, doughnutChart, lineChart } from '../../shared/utils/charts';
 import {
@@ -39,6 +40,7 @@ import {
     RiskBadgeComponent,
     RouterLink,
     StatePanelComponent,
+    VaccinationAnalyticsPanelComponent,
   ],
   template: `
     <section class="page" aria-labelledby="dash-title">
@@ -48,12 +50,13 @@ import {
       </div>
 
       <app-filters-bar />
+      <app-vaccination-analytics-panel view="overview" />
 
       @let cov = coverage();
       @if (cov.status === 'loading') {
         <app-state-panel kind="loading" />
       } @else if (cov.status === 'error') {
-        <app-state-panel kind="error" [message]="cov.message" />
+        <app-state-panel kind="error" [message]="cov.message" [retryable]="true" (retry)="coverage.retry()" />
       } @else if (cov.data.status !== 'ok' || !cov.data.summary) {
         <app-state-panel kind="unavailable" [message]="cov.data.message">
           <a routerLink="/qualidade-dados">Ver o que falta na página de qualidade dos dados</a>
@@ -67,6 +70,24 @@ import {
           <app-kpi-card label="Abaixo da meta" [value]="int(s.municipalities_below_target)" hint="Déficit maior que zero" />
           <app-kpi-card label="Situação crítica" [value]="int(s.critical_municipalities)" hint="Classe de déficit alto" tone="alert" />
         </div>
+
+        <article class="card">
+          <h2>Cobertura média por imunizante</h2>
+          @let vaccineData = immunizers();
+          @if (vaccineData.status === 'loading') {
+            <app-state-panel kind="loading" />
+          } @else if (vaccineData.status === 'error') {
+            <app-state-panel kind="error" [message]="vaccineData.message" [retryable]="true" (retry)="immunizers.retry()" />
+          } @else if (vaccineData.data.status !== 'ok') {
+            <app-state-panel kind="unavailable" [message]="vaccineData.data.message" />
+          } @else {
+            @if (immunizerChart(); as chart) {
+              <app-chart [config]="chart" ariaLabel="Cobertura média por imunizante, em percentual" />
+            } @else {
+              <app-state-panel kind="empty" message="Sem coberturas válidas por imunizante para os filtros." />
+            }
+          }
+        </article>
 
         <div class="grid grid--map">
           <article class="card">
@@ -83,15 +104,20 @@ import {
             @if (list.status === 'loading') {
               <app-state-panel kind="loading" />
             } @else if (list.status === 'error') {
-              <app-state-panel kind="error" [message]="list.message" />
+              <app-state-panel kind="error" [message]="list.message" [retryable]="true" (retry)="municipalities.retry()" />
             } @else {
-              <app-choropleth-map
-                [geo]="geoData()"
-                [items]="list.data.items"
-                [metric]="metric()"
-                [selected]="selectedCode()"
-                (selectMunicipality)="selectedCode.set($event)"
-              />
+              @let geoState = geo();
+              @if (geoState.status === 'error') {
+                <app-state-panel kind="error" [message]="geoState.message" [retryable]="true" (retry)="geo.retry()" />
+              } @else {
+                <app-choropleth-map
+                  [geo]="geoData()"
+                  [items]="list.data.items"
+                  [metric]="metric()"
+                  [selected]="selectedCode()"
+                  (selectMunicipality)="selectedCode.set($event)"
+                />
+              }
             }
             @if (selected(); as m) {
               <p class="page__lead">
@@ -119,7 +145,7 @@ import {
             @if (hist.status === 'loading') {
               <app-state-panel kind="loading" />
             } @else if (hist.status === 'error') {
-              <app-state-panel kind="error" [message]="hist.message" />
+              <app-state-panel kind="error" [message]="hist.message" [retryable]="true" (retry)="history.retry()" />
             } @else if (histConfig) {
               <app-chart [config]="histConfig" ariaLabel="Cobertura e déficit médios por ano" />
             } @else {
@@ -162,7 +188,7 @@ import {
         @if (pred.status === 'loading') {
           <app-state-panel kind="loading" />
         } @else if (pred.status === 'error') {
-          <app-state-panel kind="error" [message]="pred.message" />
+          <app-state-panel kind="error" [message]="pred.message" [retryable]="true" (retry)="predictions.retry()" />
         } @else if (pred.data.status !== 'ok' || pred.data.total === 0) {
           <app-state-panel kind="unavailable" [message]="pred.data.message" />
         } @else {
@@ -190,6 +216,9 @@ export class DashboardPage {
   protected readonly coverage = loadOnChange(this.store.filters, (f) =>
     this.coverageApi.overview(f, 10),
   );
+  protected readonly immunizers = loadOnChange(this.store.filters, (f) =>
+    this.coverageApi.byImmunizer(f),
+  );
   private readonly historyFilters = computed(() => ({
     immunizer: this.store.immunizer(),
     deficit_class: this.store.deficitClass(),
@@ -198,7 +227,7 @@ export class DashboardPage {
   protected readonly municipalities = loadOnChange(this.store.filters, (f) =>
     this.municipalitiesApi.list(f, 1000, 0),
   );
-  private readonly geo = loadOnce(() => this.geoApi.municipalities());
+  protected readonly geo = loadOnce(() => this.geoApi.municipalities());
   protected readonly predictions = loadOnce(() => this.predictionsApi.list({ limit: 1 }));
 
   protected readonly metric = signal<MapMetric>('risk');
@@ -233,6 +262,26 @@ export class DashboardPage {
       items.map((i) => RISK_LABELS[i.deficit_class] ?? i.deficit_class),
       items.map((i) => i.count),
       items.map((i) => riskColor(i.deficit_class)),
+    );
+  });
+
+  protected readonly immunizerChart = computed(() => {
+    const state = this.immunizers();
+    if (state.status !== 'success' || state.data.status !== 'ok') return null;
+    const items = state.data.items.filter(
+      (item): item is typeof item & { mean_coverage: number } => item.mean_coverage !== null,
+    );
+    if (items.length === 0) return null;
+    return barChart(
+      items.map((item) => item.immunizer),
+      [
+        {
+          label: 'Cobertura média (%)',
+          data: items.map((item) => item.mean_coverage),
+          colors: items.map(() => '#0d9488'),
+        },
+      ],
+      { horizontal: true, yTitle: 'Cobertura média (%)' },
     );
   });
 

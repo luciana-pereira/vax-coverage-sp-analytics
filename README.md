@@ -1,6 +1,18 @@
-# Vax Coverage SP Analytics
+# 💉 Vax Coverage SP Analytics — Plataforma de Inteligência e Predição de Déficit Vacinal
 
-Projeto Integrador IV (UNIVESP): análise em escala da **cobertura vacinal no Estado de São Paulo**, engenharia de dados, modelagem do **déficit de cobertura** e visualização em um dashboard.
+Projeto Integrador IV (UNIVESP) para analisar a **cobertura vacinal municipal no Estado de São Paulo** e apoiar a identificação de possíveis déficits. A plataforma integra dados de vacinação, um pipeline analítico, modelos de aprendizado de máquina para classificação do déficit no ano seguinte e um dashboard interativo.
+
+Os resultados dependem da disponibilidade e da qualidade dos dados, das populações-alvo e das metas utilizadas. As previsões são apoio à análise e não substituem a avaliação dos profissionais de saúde.
+
+## 👥 Equipe de Desenvolvimento
+
+- Camila Costa Amorim
+- Larissa Pereira da Silva
+- Leandro Rodrigues Paixão
+- Luciana Pereira dos Santos Souza
+- Marcos José Gomes Corrêa
+- Rodrigo Batista de Oliveira
+- Tiago de Oliveira Santos
 
 ## Objetivo e problema
 
@@ -35,12 +47,22 @@ O frontend nunca lê Parquet/DuckDB: consome apenas a API REST. Mais detalhes em
 
 | Camada | Tecnologia |
 |---|---|
-| Frontend | Angular 19, TypeScript, Chart.js, d3-geo |
-| Backend | FastAPI, Pydantic, DuckDB (leitura de Parquet) |
+| Frontend | Angular 19, TypeScript, SCSS, Chart.js e d3-geo para mapa SVG com GeoJSON |
+| Backend | Python, FastAPI, Pydantic, DuckDB e pandas |
 | Pipeline | Python, pandas, requests, DuckDB, Parquet |
 | ML | scikit-learn (Logistic Regression, Random Forest, Gradient Boosting) |
 | Testes | pytest, Jasmine/Karma |
 | Infra | Docker Compose (opcional), GitHub Actions |
+
+O mapa atual utiliza **d3-geo e SVG**, não Leaflet. Sua visualização depende de um GeoJSON municipal configurado.
+
+## Documentação técnica
+
+- [Backend, ingestão e machine learning](docs/backend.md).
+- [Frontend Angular, mapa e build](docs/frontend.md).
+- [Arquitetura](docs/architecture/overview.md) e [referência da API](docs/api/endpoints.md).
+- [Pipeline de dados](docs/data/pipeline.md), [fontes](docs/data/sources.md) e [pipeline de ML](docs/ml/ml-pipeline.md).
+- [Dashboard e indicadores](docs/dashboard/dashboard.md).
 
 ## Estrutura do monorepo
 
@@ -57,48 +79,116 @@ docs/       architecture, api, data, ml, frontend, dashboard
 scripts/    bootstrap e run (PowerShell e Bash), export_openapi.py
 ```
 
-## Requisitos
+## Pré-requisitos e ferramentas
 
-- Python 3.10 ou superior (CI usa 3.12)
-- Node.js 20.11 ou superior e npm
-- Git
-- Docker é opcional (no Windows, use o Docker Engine dentro do Ubuntu/WSL; Docker Desktop não é necessário)
+| Ferramenta | Requisito e instalação |
+|---|---|
+| Python | [Python 3.10 ou superior](https://www.python.org/downloads/); no Windows, adicione-o ao `PATH`. |
+| Node.js e npm | [Node.js](https://nodejs.org/) inclui o npm. Angular 19 aceita versões específicas a partir de Node 18.19.1, mas o bootstrap deste projeto exige Node 20.11 ou superior. Recomenda-se Node 20.11.1+ ou 22 em versões compatíveis; consulte a [matriz oficial do Angular](https://angular.dev/reference/versions). |
+| Angular CLI | O projeto já instala uma CLI local com `npm ci`; instalação global é opcional: `npm install -g @angular/cli`. Consulte a [documentação oficial](https://angular.dev/tools/cli). |
+| Git | [Baixar Git](https://git-scm.com/). |
+| Google Chrome | Necessário para o executor padrão de testes do frontend; [download oficial](https://www.google.com/chrome/). |
+| Docker Compose | Opcional para execução em contêineres; veja a [documentação oficial](https://docs.docker.com/compose/). |
 
-Os scripts de bootstrap **não instalam** software do sistema: informam o que falta.
+Os scripts de bootstrap verificam os requisitos, mas não instalam programas do sistema.
 
-## Instalação
+## Execução local — Windows e PowerShell
 
-### Windows (PowerShell)
+### 1. Clonar o repositório
 
 ```powershell
-.\scripts\bootstrap.ps1          # use -Force para reinstalar dependências
-.\scripts\run.ps1                # backend + frontend (use -Backend ou -Frontend)
+git clone https://github.com/luciana-pereira/vax-coverage-sp-analytics.git
+cd vax-coverage-sp-analytics
 ```
 
-### Linux/macOS/WSL
+### 2. Preparar o ambiente
 
-```bash
-./scripts/bootstrap.sh           # use --force para reinstalar dependências
-./scripts/run.sh                 # backend + frontend (--backend ou --frontend)
+Na raiz do repositório:
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install -r requirements.txt
+if (-not (Test-Path .env)) { Copy-Item .env.example .env }
+Set-Location frontend
+npm ci
+Set-Location ..
 ```
 
-O bootstrap cria `.venv`, instala `requirements.txt` e `frontend/package-lock.json`, cria `data/*` e copia `.env.example` para `.env`.
+O comando `npm ci` instala as dependências a partir do lockfile, incluindo a Angular CLI local. Ajuste `.env` conforme as fontes e os caminhos disponíveis; não sobrescreva um arquivo já configurado. Se o PowerShell bloquear a ativação, siga a [orientação oficial do Python para ambientes virtuais](https://docs.python.org/3/library/venv.html#how-venvs-work) e a política de execução aplicável ao seu ambiente.
 
-## Execução local
+**Alternativa automatizada:** `.\scripts\bootstrap.ps1` cria o ambiente virtual, instala as dependências Python e do frontend, cria os diretórios de dados e copia `.env.example` apenas quando `.env` não existe. Use `-Force` para reinstalar dependências.
+
+### 3. Preparar dados e modelo
+
+A aplicação pode iniciar sem dados ou modelo, mas mostrará estados de indisponibilidade. Para gerar indicadores de cobertura e treinar o modelo, forneça primeiro:
+
+1. Dados PNI em JSONL no caminho configurado por `RAW_FILE_NAME` ou acesso à API para extração.
+2. Mapeamento de colunas em `data/external/column_mapping.json`.
+3. População-alvo validada em `data/external/target_population.csv`, com `municipality_code`, `year`, `immunizer` e `population`.
+4. Metas validadas por imunizante em `data/external/coverage_targets.json` e uma série histórica suficiente para treinamento.
+
+Os caminhos podem ser alterados em `.env`. População municipal total não é substituto para a população-alvo vacinal. Consulte [o pipeline](docs/data/pipeline.md) e [as fontes](docs/data/sources.md) antes de preparar os arquivos.
+
+Com o ambiente ativo e os insumos preparados, execute na raiz:
+
+```powershell
+# Opcional se já houver JSONL local no caminho configurado:
+python -m pipeline.cli extract --year 2024
+
+python -m pipeline.cli transform
+python -m pipeline.cli validate
+python -m pipeline.cli load
+python -m ml.cli features
+python -m ml.cli train
+```
+
+`load` exige um Parquet processado e validado; `train` exige o dataset produzido por `features`. Para validação temporal, o treino precisa de pelo menos **dois períodos rotulados** e de pelo menos duas classes no treino. Com apenas dois períodos, a seleção usa o conjunto de teste e pode ser otimista; com três ou mais períodos rotulados, há validação separada. Um único ano de dados não permite esse treino. Detalhes em [ML](docs/ml/ml-pipeline.md).
+
+### 4. Iniciar backend e frontend
+
+**Opção A — script automatizado**, na raiz:
+
+```powershell
+.\scripts\run.ps1
+```
+
+O script abre janelas separadas. Para iniciar um serviço, use `.\scripts\run.ps1 -Backend` ou `.\scripts\run.ps1 -Frontend`. O script verifica o ambiente virtual e as dependências do frontend mesmo quando apenas um serviço é selecionado.
+
+**Opção B — manual**, em dois terminais PowerShell, ambos inicialmente na raiz:
+
+Terminal 1 — backend:
+
+```powershell
+.\.venv\Scripts\Activate.ps1
+$env:PYTHONPATH = "$PWD;$PWD\backend"
+python -m uvicorn app.main:app --app-dir backend --reload --port 8000
+```
+
+Terminal 2 — frontend:
+
+```powershell
+Set-Location frontend
+npm start
+```
+
+O módulo do projeto é `app.main:app` em `backend/app/main.py`; `uvicorn main:app` não corresponde à estrutura atual. Para encerrar, use `Ctrl+C` em cada terminal ou janela de serviço.
+
+### 5. Acessar a aplicação
 
 | Serviço | URL |
 |---|---|
 | Dashboard Angular | http://localhost:4200 |
-| API FastAPI | http://localhost:8000 |
-| Swagger UI / ReDoc / OpenAPI | `/docs` · `/redoc` · `/openapi.json` |
+| Saúde da API | http://localhost:8000/api/v1/health |
+| Swagger UI | http://localhost:8000/docs |
+| ReDoc | http://localhost:8000/redoc |
+| Contrato OpenAPI | http://localhost:8000/openapi.json |
 
-Manual, sem scripts:
+O frontend de desenvolvimento usa `http://localhost:8000/api/v1`. Se alterar host ou portas, ajuste a configuração do frontend e `CORS_ORIGINS` no backend.
 
-```powershell
-$env:PYTHONPATH = "$PWD;$PWD\backend"
-.\.venv\Scripts\python -m uvicorn app.main:app --app-dir backend --reload   # backend
-cd frontend; npm start                                                      # frontend
-```
+### Linux/macOS/WSL
+
+Como alternativa, execute `./scripts/bootstrap.sh` e depois `./scripts/run.sh`. Os scripts aceitam `--force` no bootstrap e `--backend` ou `--frontend` no comando de execução.
 
 ## Pipeline de dados
 
@@ -111,7 +201,7 @@ python -m pipeline.cli load        # processado -> DuckDB (data/processed/vax.du
 
 O ano é informado em tempo de execução no extract; o endpoint do PNI é construído dinamicamente a partir do ano informado.
 
-A transformação normaliza os campos do PNI, filtra a UF do paciente e associa a população-alvo por município, ano e imunizante quando esse campo existe. A consulta SIDRA de população municipal total é separada e não é usada como denominador vacinal.
+A transformação normaliza os campos do PNI, filtra pela UF quando ela existe, mantém `sg_imunobiologico` como imunizante do raw local e associa target somente por município, ano e imunizante. População municipal total da SIDRA nunca substitui esse target.
 
 Os dados extraídos ficam em data/raw, permitindo que transformação, validação, carga e treinamento sejam executados sem consultar novamente a API de origem.
 
@@ -128,7 +218,7 @@ python -m ml.cli predict    # inferência do último ano sem rótulo
 ```
 
 - **Alvo:** classe de déficit do **ano seguinte**; atributos do ano corrente e defasados. A classe do próprio ano não é atributo (sem vazamento de alvo).
-- **Validação temporal:** treino < validação < teste (sem split aleatório).
+- **Validação temporal:** treino < validação < teste quando há pelo menos três períodos rotulados; com dois, não há validação separada.
 - **Métricas:** F1, precision, recall, acurácia, matriz de confusão e baseline de persistência.
 
 Detalhes em [docs/ml/ml-pipeline.md](docs/ml/ml-pipeline.md).
@@ -139,15 +229,17 @@ A documentação das rotas é derivada do OpenAPI real: [docs/api/endpoints.md](
 
 ## Dashboard
 
-Páginas: visão geral (KPIs, mapa, evolução, ranking, previsões), histórico, municípios, previsões, modelos e qualidade dos dados. Veja [docs/dashboard/dashboard.md](docs/dashboard/dashboard.md).
+Páginas: visão geral (KPIs, mapa, evolução, ranking, previsões), histórico, municípios, previsões, modelos e qualidade dos dados. Na visão geral é possível enviar um CSV para análise agregada temporária; o upload não substitui a execução do pipeline nem treina o modelo. A API valida arquivos de até 25 MiB e 500.000 linhas, processa-os em memória e retorna agregados. Veja [dashboard](docs/dashboard/dashboard.md) e [endpoints](docs/api/endpoints.md).
 
 ## Testes e lint
 
 ```powershell
 python -m pytest                       # backend, pipeline, ML, integração e e2e
 ruff check backend pipeline ml tests scripts
-cd frontend; npm test                  # Jasmine/Karma em Chrome headless
-cd frontend; npm run build
+Set-Location frontend
+npm test                               # Jasmine/Karma em Chrome headless
+npm run build
+Set-Location ..
 ```
 
 ## Docker (opcional)
@@ -180,14 +272,15 @@ Não versione segredos nem o arquivo `.env`.
 
 O projeto possui integração com as fontes reais do PNI e do IBGE.
 
-Estado validado em 05/11/2026:
+Registro da auditoria de 05/11/2026; arquivos locais e resultados podem ter mudado desde então:
 
-- o endpoint PNI de 2024 respondeu em teste de página limitada; o envelope e os campos de município, vacina, data e UF do paciente foram observados. A extração completa não foi executada;
-- a SIDRA (tabela 6579, variável 9324, período 2024) respondeu com 645 municípios de SP. O valor é população municipal total, não população-alvo vacinal;
-- `data/external/target_population.csv` não está disponível no repositório. Sem esse denominador (e sem uma coluna `population` canônica na entrada), `transform` agora falha explicitamente em vez de calcular cobertura com a população total;
-- `codigo_vacina` é preservado como código bruto. O cruzamento oficial para grupos como SCR/INF3 e o denominador correspondente ainda precisam ser fornecidos/validados;
-- os Parquets locais atuais contêm 645 municípios, mas não têm dimensão `immunizer`; a API agora os sinaliza como indisponíveis em vez de publicar cobertura sem identificação vacinal;
-- não existe endpoint ou página de upload no backend/frontend. O processador de CSV é apenas uma rotina de pipeline, não um fluxo de upload ponta a ponta;
+- `data/raw/pni_2024_sp_min.jsonl` tem 2.401.483 linhas, todas de 2024, cobrindo 645 municípios e 90 siglas `sg_imunobiologico`; o raw reduzido não contém ID único de dose, então a deduplicação está desligada;
+- a resposta da API PNI completa foi validada em amostra, mas usa schema diferente (`codigo_vacina`); não há cruzamento oficial desse código para a sigla de imunizante;
+- SIDRA tabela 6579/variável 9324/2024 e tabela censitária 9514/variável 93/2022 retornam população municipal total, não denominador vacinal;
+- à época, `data/external/target_population.csv` e `coverage_targets.json` não estavam disponíveis. `transform`/`ml features` bloqueiam o cálculo sem população-alvo alinhada por município/ano/imunizante e metas com origem validada;
+- os Parquets/DuckDB locais estão desatualizados: 645 linhas, apenas 2024, sem coluna `immunizer`. A API sinaliza cobertura indisponível;
+- as categorias etárias do Censo foram consultadas, mas não há mapeamento oficial aprovado para associá-las aos imunizantes PNI; o helper exige configuração explícita e não gera targets por hipótese;
+- à época, o GeoJSON municipal e o modelo treinado não estavam disponíveis. Um único ano não permite validação temporal;
 - o mapa depende de GeoJSON municipal e configuração de `GEOJSON_CODE_PROPERTY`; o modelo treinado depende de artefatos não versionados;
 - regressão (RMSE/MAE) não foi implementada: o problema modelado é de classificação.
 

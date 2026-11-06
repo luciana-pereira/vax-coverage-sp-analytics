@@ -4,11 +4,12 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends
 
+from ...schemas.common import SERVER_ERROR_RESPONSES
 from ...schemas.model import ModelResponse
 from ...services.model_service import ModelService
 from ..deps import get_model_service
 
-router = APIRouter(prefix="/models", tags=["models"])
+router = APIRouter(prefix="/models", tags=["models"], responses=SERVER_ERROR_RESPONSES)
 
 
 @router.get(

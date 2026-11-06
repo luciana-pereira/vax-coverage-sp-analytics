@@ -1,11 +1,13 @@
-import { Signal } from '@angular/core';
+import { Signal, computed, signal } from '@angular/core';
 import { toObservable, toSignal } from '@angular/core/rxjs-interop';
-import { Observable, catchError, map, of, startWith, switchMap } from 'rxjs';
+import { Observable, Subject, catchError, concat, map, of, startWith, switchMap } from 'rxjs';
 
 export type LoadState<T> =
   | { status: 'loading' }
   | { status: 'error'; message: string }
   | { status: 'success'; data: T };
+
+export type RetryableLoadSignal<T> = Signal<LoadState<T>> & { retry(): void };
 
 export function toLoadState<T>(source: Observable<T>): Observable<LoadState<T>> {
   return source.pipe(
@@ -24,12 +26,19 @@ export function toLoadState<T>(source: Observable<T>): Observable<LoadState<T>> 
 export function loadOnChange<P, T>(
   params: Signal<P>,
   fetch: (params: P) => Observable<T>,
-): Signal<LoadState<T>> {
-  return toSignal(toObservable(params).pipe(switchMap((p) => toLoadState(fetch(p)))), {
+): RetryableLoadSignal<T> {
+  const refresh = signal(0);
+  const query = computed(() => ({ params: params(), refresh: refresh() }));
+  const state = toSignal(toObservable(query).pipe(switchMap(({ params: current }) => toLoadState(fetch(current)))), {
     initialValue: { status: 'loading' } as LoadState<T>,
   });
+  return Object.assign(state, { retry: () => refresh.update((value) => value + 1) });
 }
 
-export function loadOnce<T>(fetch: () => Observable<T>): Signal<LoadState<T>> {
-  return toSignal(toLoadState(fetch()), { initialValue: { status: 'loading' } as LoadState<T> });
+export function loadOnce<T>(fetch: () => Observable<T>): RetryableLoadSignal<T> {
+  const retries = new Subject<void>();
+  const state = toSignal(concat(toLoadState(fetch()), retries.pipe(switchMap(() => toLoadState(fetch())))), {
+    initialValue: { status: 'loading' } as LoadState<T>,
+  });
+  return Object.assign(state, { retry: () => retries.next() });
 }

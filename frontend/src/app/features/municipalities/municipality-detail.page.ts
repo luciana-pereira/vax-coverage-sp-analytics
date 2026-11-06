@@ -1,13 +1,11 @@
 import { Component, computed, inject, input } from '@angular/core';
-import { toObservable, toSignal } from '@angular/core/rxjs-interop';
 import { RouterLink } from '@angular/router';
-import { switchMap } from 'rxjs';
 
 import { MunicipalitiesService } from '../../core/services/api.services';
 import { ChartComponent } from '../../shared/components/chart.component';
 import { KpiCardComponent } from '../../shared/components/kpi-card.component';
 import { RiskBadgeComponent } from '../../shared/components/risk-badge.component';
-import { LoadState, toLoadState } from '../../shared/state/load-state';
+import { loadOnChange } from '../../shared/state/load-state';
 import { MunicipalityDetailResponse } from '../../core/models/api.models';
 import { StatePanelComponent } from '../../shared/components/state-panel.component';
 import { lineChart } from '../../shared/utils/charts';
@@ -24,7 +22,7 @@ import { formatInteger, formatPercent, formatPoints, municipalityLabel } from '.
       @if (d.status === 'loading') {
         <app-state-panel kind="loading" />
       } @else if (d.status === 'error') {
-        <app-state-panel kind="error" [message]="d.message" />
+        <app-state-panel kind="error" [message]="d.message" [retryable]="true" (retry)="detail.retry()" />
       } @else {
         @let m = d.data.municipality;
         <div>
@@ -71,10 +69,7 @@ export class MunicipalityDetailPage {
 
   private readonly api = inject(MunicipalitiesService);
 
-  protected readonly detail = toSignal(
-    toObservable(this.code).pipe(switchMap((code) => toLoadState(this.api.detail(code)))),
-    { initialValue: { status: 'loading' } as LoadState<MunicipalityDetailResponse> },
-  );
+  protected readonly detail = loadOnChange(this.code, (code) => this.api.detail(code));
 
   protected readonly pct = formatPercent;
   protected readonly pts = formatPoints;

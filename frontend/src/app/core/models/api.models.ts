@@ -17,6 +17,18 @@ export interface DeficitDistributionItem {
   count: number;
 }
 
+export interface CoverageByImmunizerItem {
+  immunizer: string;
+  mean_coverage: number | null;
+  mean_deficit: number | null;
+}
+
+export interface CoverageByImmunizerResponse {
+  status: DataStatus;
+  message: string | null;
+  items: CoverageByImmunizerItem[];
+}
+
 export interface MunicipalityRankingItem {
   municipality_code: string;
   municipality_name: string | null;
@@ -190,6 +202,7 @@ export interface DatasetQuality {
   duplicate_rows: number;
   missing_columns: string[];
   columns: ColumnQuality[];
+  records_by_year: { year: number; records: number }[];
 }
 
 export interface DataQualityResponse {
@@ -197,6 +210,85 @@ export interface DataQualityResponse {
   artifacts: ArtifactStatus[];
   dataset: DatasetQuality | null;
   known_gaps: string[];
+}
+
+export type AnalyticsAgeGroup = '0-4' | '60+';
+export type MunicipalityBasis = 'patient' | 'application';
+
+export interface AnalyticsVaccineFilter {
+  key: string;
+  code: string | null;
+  abbreviation: string | null;
+  description: string | null;
+  label: string;
+}
+
+export interface AnalyticsMunicipalityFilter {
+  code: string;
+  name: string | null;
+}
+
+export interface AnalyticsFilters {
+  years: number[];
+  vaccines: AnalyticsVaccineFilter[];
+  age_groups: AnalyticsAgeGroup[];
+  patient_municipalities: AnalyticsMunicipalityFilter[];
+  application_municipalities: AnalyticsMunicipalityFilter[];
+}
+
+export interface AnalyticsMonth {
+  month: string;
+  doses: number;
+}
+
+export interface AnalyticsCategory {
+  key: string;
+  label: string;
+  doses: number;
+}
+
+export interface AnalyticsVaccineCount extends AnalyticsVaccineFilter {
+  doses: number;
+}
+
+export interface AnalyticsMunicipalityCount extends AnalyticsMunicipalityFilter {
+  doses: number;
+}
+
+export interface VaccinationAnalyticsResponse {
+  status: DataStatus;
+  message: string | null;
+  source: string | null;
+  source_updated_at: string | null;
+  generated_at: string;
+  year: number | null;
+  period_start: string | null;
+  period_end: string | null;
+  total_doses: number;
+  statewide: boolean;
+  dimensions: Record<string, boolean>;
+  filters: AnalyticsFilters;
+  monthly: AnalyticsMonth[];
+  by_sex: AnalyticsCategory[];
+  by_age_group: AnalyticsCategory[];
+  by_vaccine: AnalyticsVaccineCount[];
+  by_patient_municipality: AnalyticsMunicipalityCount[];
+  by_application_municipality: AnalyticsMunicipalityCount[];
+  warnings: string[];
+}
+
+export interface AnalyticsUploadResponse extends VaccinationAnalyticsResponse {
+  accepted_rows: number;
+  source_token: string | null;
+}
+
+export interface VaccinationAnalyticsQuery {
+  year?: number | null;
+  vaccine?: string | null;
+  age_group?: AnalyticsAgeGroup | null;
+  municipality_code?: string | null;
+  municipality_basis?: MunicipalityBasis;
+  source_token?: string | null;
 }
 
 export interface GeoFeature {

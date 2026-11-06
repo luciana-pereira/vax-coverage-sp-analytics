@@ -4,11 +4,12 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends
 
+from ...schemas.common import SERVER_ERROR_RESPONSES
 from ...schemas.data_quality import DataQualityResponse
 from ...services.data_quality_service import DataQualityService
 from ..deps import get_data_quality_service
 
-router = APIRouter(prefix="/data-quality", tags=["data-quality"])
+router = APIRouter(prefix="/data-quality", tags=["data-quality"], responses=SERVER_ERROR_RESPONSES)
 
 
 @router.get(

@@ -87,6 +87,12 @@ describe('ModelsPage', () => {
     expect(text()).toContain('0,650');
     expect(text()).toContain('Menos de 3 períodos.');
     expect(text()).toContain('Baseline (persistência)');
+    expect(text()).toContain('Comparação das métricas no teste');
+    expect(
+      (fixture.nativeElement as HTMLElement).querySelector(
+        'canvas[aria-label="F1, precision, recall e acurácia por modelo no teste"]',
+      ),
+    ).not.toBeNull();
     const cells = (fixture.nativeElement as HTMLElement).querySelectorAll('table.matrix tbody tr');
     expect(cells.length).toBe(2);
   });

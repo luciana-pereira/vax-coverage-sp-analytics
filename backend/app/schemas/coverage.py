@@ -44,6 +44,18 @@ class CoverageFilterOptions(BaseModel):
     deficit_classes: list[str] = Field(default_factory=list)
 
 
+class CoverageByImmunizerItem(BaseModel):
+    immunizer: str
+    mean_coverage: float | None
+    mean_deficit: float | None
+
+
+class CoverageByImmunizerResponse(BaseModel):
+    status: DataStatus
+    message: str | None = None
+    items: list[CoverageByImmunizerItem] = Field(default_factory=list)
+
+
 class CoverageHistoryPoint(BaseModel):
     year: int
     mean_coverage: float | None

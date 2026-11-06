@@ -11,8 +11,12 @@ Swagger UI: `/docs` · ReDoc: `/redoc` · Contrato: `/openapi.json`.
 | Método | Caminho | Resumo |
 |---|---|---|
 | GET | `/api/v1/health` | Verifica o estado da API |
+| GET | `/api/v1/analytics` | Doses agregadas por período e dimensões |
+| POST | `/api/v1/analytics/pni` | Atualizar agregados pela API PNI configurada |
+| POST | `/api/v1/analytics/upload` | Validar e agregar CSV de vacinação |
 | GET | `/api/v1/coverage` | Indicadores de cobertura e déficit |
 | GET | `/api/v1/coverage/filters` | Valores disponíveis para os filtros |
+| GET | `/api/v1/coverage/immunizers` | Cobertura e déficit por imunizante |
 | GET | `/api/v1/coverage/history` | Série histórica de cobertura e déficit |
 | GET | `/api/v1/municipalities` | Lista municípios com cobertura e déficit médios |
 | GET | `/api/v1/municipalities/{municipality_id}` | Detalhe de um município |
@@ -28,6 +32,51 @@ Retorna `ok` quando o serviço está em execução. Não consulta os dados.
 | Código | Corpo |
 |---|---|
 | 200 | HealthResponse |
+| 500 | ErrorResponse |
+
+### GET `/api/v1/analytics`
+
+Retorna agregados mensais, por sexo, faixa etária, vacina e município. Município do paciente e município do estabelecimento permanecem separados. Identificadores pessoais e linhas individuais nunca são retornados.
+
+| Parâmetro | Em | Tipo | Obrigatório | Descrição |
+|---|---|---|---|---|
+| `year` | query | integer \| null | não |  |
+| `vaccine` | query | string \| null | não |  |
+| `age_group` | query | `0-4` \| `60+` \| null | não |  |
+| `municipality_code` | query | string \| null | não |  |
+| `municipality_basis` | query | `patient` \| `application` | não |  |
+| `source_token` | query | string \| null | não |  |
+
+| Código | Corpo |
+|---|---|
+| 200 | VaccinationAnalyticsResponse |
+| 410 | A sessão de CSV expirou. |
+| 422 | HTTPValidationError |
+
+### POST `/api/v1/analytics/pni`
+
+Consulta páginas da API PNI e agrega no backend. Os registros individuais da resposta, incluindo IDs, nunca são gravados nem retornados. A operação pode ser demorada.
+
+| Parâmetro | Em | Tipo | Obrigatório | Descrição |
+|---|---|---|---|---|
+| `year` | query | integer | não |  |
+
+| Código | Corpo |
+|---|---|
+| 200 | AnalyticsUploadResponse |
+| 502 | A fonte PNI está indisponível ou retornou dados inválidos. |
+| 422 | HTTPValidationError |
+
+### POST `/api/v1/analytics/upload`
+
+Aceita CSV de até 25 MiB e 500.000 linhas, agrega em memória e retorna somente contagens. O conteúdo individual não é gravado nem enviado ao frontend.
+
+| Código | Corpo |
+|---|---|
+| 200 | AnalyticsUploadResponse |
+| 413 | CSV excede o limite. |
+| 415 | Tipo de conteúdo inválido. |
+| 422 | Nome, schema, encoding ou conteúdo inválido. |
 
 ### GET `/api/v1/coverage`
 
@@ -46,7 +95,8 @@ KPIs agregados (cobertura média, déficit médio, municípios abaixo da meta e 
 | Código | Corpo |
 |---|---|
 | 200 | CoverageResponse |
-| 422 | HTTPValidationError |
+| 500 | ErrorResponse |
+| 422 | ErrorResponse |
 
 ### GET `/api/v1/coverage/filters`
 
@@ -55,6 +105,27 @@ Anos, imunizantes (se a coluna existir) e classes de déficit presentes nos dado
 | Código | Corpo |
 |---|---|
 | 200 | CoverageFilterOptions |
+| 500 | ErrorResponse |
+| 422 | ErrorResponse |
+
+### GET `/api/v1/coverage/immunizers`
+
+Agrega cobertura e déficit médios por imunizante usando os filtros aplicados. Sem dimensões vacinais ou dataset válido, retorna `data_unavailable`.
+
+| Parâmetro | Em | Tipo | Obrigatório | Descrição |
+|---|---|---|---|---|
+| `year` | query | integer \| null | não | Ano exato. |
+| `year_from` | query | integer \| null | não | Ano inicial. |
+| `year_to` | query | integer \| null | não | Ano final. |
+| `immunizer` | query | string \| null | não | Imunizante. |
+| `municipality_code` | query | list[string] \| null | não | Código(s) do município; repita o parâmetro. |
+| `deficit_class` | query | string \| null | não | Classe de déficit das linhas (baixo/moderado/alto). |
+
+| Código | Corpo |
+|---|---|
+| 200 | CoverageByImmunizerResponse |
+| 500 | ErrorResponse |
+| 422 | ErrorResponse |
 
 ### GET `/api/v1/coverage/history`
 
@@ -72,7 +143,8 @@ Evolução anual. Sem `municipality_code`, uma série agregada (`all`). Com um o
 | Código | Corpo |
 |---|---|
 | 200 | CoverageHistoryResponse |
-| 422 | HTTPValidationError |
+| 500 | ErrorResponse |
+| 422 | ErrorResponse |
 
 ### GET `/api/v1/municipalities`
 
@@ -92,7 +164,8 @@ Agregação por município sobre as linhas filtradas, ordenada por nome/código.
 | Código | Corpo |
 |---|---|
 | 200 | MunicipalityListResponse |
-| 422 | HTTPValidationError |
+| 500 | ErrorResponse |
+| 422 | ErrorResponse |
 
 ### GET `/api/v1/municipalities/{municipality_id}`
 
@@ -111,8 +184,9 @@ Indicadores, histórico anual e resumo por imunizante do município (código).
 | Código | Corpo |
 |---|---|
 | 200 | MunicipalityDetailResponse |
+| 500 | ErrorResponse |
+| 422 | ErrorResponse |
 | 404 | ErrorResponse |
-| 422 | HTTPValidationError |
 
 ### GET `/api/v1/predictions`
 
@@ -130,7 +204,8 @@ Aplica o modelo treinado aos atributos do último ano sem rótulo (ou de `year`)
 | Código | Corpo |
 |---|---|
 | 200 | PredictionResponse |
-| 422 | HTTPValidationError |
+| 500 | ErrorResponse |
+| 422 | ErrorResponse |
 
 ### GET `/api/v1/models`
 
@@ -139,6 +214,7 @@ Relatório do último treino: alvo, atributos, divisão temporal, métricas por 
 | Código | Corpo |
 |---|---|
 | 200 | ModelResponse |
+| 500 | ErrorResponse |
 
 ### GET `/api/v1/data-quality`
 
@@ -147,6 +223,7 @@ Status dos artefatos (bruto, processado, features, modelo, GeoJSON, população-
 | Código | Corpo |
 |---|---|
 | 200 | DataQualityResponse |
+| 500 | ErrorResponse |
 
 ### GET `/api/v1/geo/municipalities`
 
@@ -155,8 +232,96 @@ Entrega o GeoJSON configurado em `GEOJSON_PATH`. O projeto não inclui geometria
 | Código | Corpo |
 |---|---|
 | 200 | GeoResponse |
+| 500 | ErrorResponse |
 
 ## Schemas
+
+### AnalyticsCategory
+
+| Campo | Tipo | Obrigatório | Descrição |
+|---|---|---|---|
+| `key` | string | sim |  |
+| `label` | string | sim |  |
+| `doses` | integer | sim |  |
+
+### AnalyticsFilters
+
+| Campo | Tipo | Obrigatório | Descrição |
+|---|---|---|---|
+| `years` | list[integer] | não |  |
+| `vaccines` | list[AnalyticsVaccineFilter] | não |  |
+| `age_groups` | list[string] | não |  |
+| `patient_municipalities` | list[AnalyticsMunicipalityFilter] | não |  |
+| `application_municipalities` | list[AnalyticsMunicipalityFilter] | não |  |
+
+### AnalyticsMonth
+
+| Campo | Tipo | Obrigatório | Descrição |
+|---|---|---|---|
+| `month` | string | sim |  |
+| `doses` | integer | sim |  |
+
+### AnalyticsMunicipalityCount
+
+| Campo | Tipo | Obrigatório | Descrição |
+|---|---|---|---|
+| `code` | string | sim |  |
+| `name` | string \| null | não |  |
+| `doses` | integer | sim |  |
+
+### AnalyticsMunicipalityFilter
+
+| Campo | Tipo | Obrigatório | Descrição |
+|---|---|---|---|
+| `code` | string | sim |  |
+| `name` | string \| null | não |  |
+
+### AnalyticsUploadResponse
+
+| Campo | Tipo | Obrigatório | Descrição |
+|---|---|---|---|
+| `status` | `ok` \| `data_unavailable` | sim |  |
+| `message` | string \| null | não |  |
+| `source` | string \| null | não |  |
+| `source_updated_at` | string \| null | não |  |
+| `generated_at` | string | sim |  |
+| `year` | integer \| null | não |  |
+| `period_start` | string \| null | não |  |
+| `period_end` | string \| null | não |  |
+| `total_doses` | integer | não |  |
+| `statewide` | boolean | não |  |
+| `dimensions` | dict[str, boolean] | não |  |
+| `filters` | AnalyticsFilters | não |  |
+| `monthly` | list[AnalyticsMonth] | não |  |
+| `by_sex` | list[AnalyticsCategory] | não |  |
+| `by_age_group` | list[AnalyticsCategory] | não |  |
+| `by_vaccine` | list[AnalyticsVaccineCount] | não |  |
+| `by_patient_municipality` | list[AnalyticsMunicipalityCount] | não |  |
+| `by_application_municipality` | list[AnalyticsMunicipalityCount] | não |  |
+| `warnings` | list[string] | não |  |
+| `accepted_rows` | integer | não |  |
+| `source_token` | string \| null | não |  |
+
+### AnalyticsVaccineCount
+
+| Campo | Tipo | Obrigatório | Descrição |
+|---|---|---|---|
+| `key` | string | sim |  |
+| `code` | string \| null | não |  |
+| `abbreviation` | string \| null | não |  |
+| `description` | string \| null | não |  |
+| `label` | string | sim |  |
+| `doses` | integer | sim |  |
+
+### AnalyticsVaccineFilter
+
+| Campo | Tipo | Obrigatório | Descrição |
+|---|---|---|---|
+| `key` | string | sim |  |
+| `code` | string \| null | não |  |
+| `abbreviation` | string \| null | não |  |
+| `description` | string \| null | não |  |
+| `label` | string | sim |  |
 
 ### ArtifactStatus
 
@@ -182,6 +347,22 @@ Entrega o GeoJSON configurado em `GEOJSON_PATH`. O projeto não inclui geometria
 | `name` | string | sim |  |
 | `null_count` | integer | sim |  |
 | `null_ratio` | number | sim |  |
+
+### CoverageByImmunizerItem
+
+| Campo | Tipo | Obrigatório | Descrição |
+|---|---|---|---|
+| `immunizer` | string | sim |  |
+| `mean_coverage` | number \| null | sim |  |
+| `mean_deficit` | number \| null | sim |  |
+
+### CoverageByImmunizerResponse
+
+| Campo | Tipo | Obrigatório | Descrição |
+|---|---|---|---|
+| `status` | `ok` \| `data_unavailable` | sim |  |
+| `message` | string \| null | não |  |
+| `items` | list[CoverageByImmunizerItem] | não |  |
 
 ### CoverageFilterOptions
 
@@ -259,6 +440,7 @@ Entrega o GeoJSON configurado em `GEOJSON_PATH`. O projeto não inclui geometria
 | `duplicate_rows` | integer | sim |  |
 | `missing_columns` | list[string] | sim | Colunas esperadas ausentes. |
 | `columns` | list[ColumnQuality] | sim |  |
+| `records_by_year` | list[YearRecordCount] | não |  |
 
 ### DeficitDistributionItem
 
@@ -272,6 +454,7 @@ Entrega o GeoJSON configurado em `GEOJSON_PATH`. O projeto não inclui geometria
 | Campo | Tipo | Obrigatório | Descrição |
 |---|---|---|---|
 | `detail` | string | sim | Descrição do erro. |
+| `request_id` | string | sim | Identificador para correlacionar com o log do servidor. |
 
 ### FeatureImportanceItem
 
@@ -428,3 +611,34 @@ Entrega o GeoJSON configurado em `GEOJSON_PATH`. O projeto não inclui geometria
 | `n_train` | integer | sim |  |
 | `n_validation` | integer | sim |  |
 | `n_test` | integer | sim |  |
+
+### VaccinationAnalyticsResponse
+
+| Campo | Tipo | Obrigatório | Descrição |
+|---|---|---|---|
+| `status` | `ok` \| `data_unavailable` | sim |  |
+| `message` | string \| null | não |  |
+| `source` | string \| null | não |  |
+| `source_updated_at` | string \| null | não |  |
+| `generated_at` | string | sim |  |
+| `year` | integer \| null | não |  |
+| `period_start` | string \| null | não |  |
+| `period_end` | string \| null | não |  |
+| `total_doses` | integer | não |  |
+| `statewide` | boolean | não |  |
+| `dimensions` | dict[str, boolean] | não |  |
+| `filters` | AnalyticsFilters | não |  |
+| `monthly` | list[AnalyticsMonth] | não |  |
+| `by_sex` | list[AnalyticsCategory] | não |  |
+| `by_age_group` | list[AnalyticsCategory] | não |  |
+| `by_vaccine` | list[AnalyticsVaccineCount] | não |  |
+| `by_patient_municipality` | list[AnalyticsMunicipalityCount] | não |  |
+| `by_application_municipality` | list[AnalyticsMunicipalityCount] | não |  |
+| `warnings` | list[string] | não |  |
+
+### YearRecordCount
+
+| Campo | Tipo | Obrigatório | Descrição |
+|---|---|---|---|
+| `year` | integer | sim |  |
+| `records` | integer | sim |  |

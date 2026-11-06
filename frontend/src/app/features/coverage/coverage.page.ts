@@ -4,9 +4,11 @@ import { CoverageFilters } from '../../core/models/api.models';
 import { CoverageService, MunicipalitiesService } from '../../core/services/api.services';
 import { FilterStore } from '../../core/state/filter-store.service';
 import { ChartComponent } from '../../shared/components/chart.component';
+import { FiltersBarComponent } from '../../shared/components/filters-bar.component';
 import { StatePanelComponent } from '../../shared/components/state-panel.component';
+import { VaccinationAnalyticsPanelComponent } from '../../shared/components/vaccination-analytics-panel.component';
 import { loadOnChange, loadOnce } from '../../shared/state/load-state';
-import { lineChart } from '../../shared/utils/charts';
+import { barChart, lineChart } from '../../shared/utils/charts';
 import { formatPercent, formatPoints, municipalityLabel } from '../../shared/utils/format';
 
 const PALETTE = ['#1f4e79', '#c62828', '#2e7d32', '#6a1b9a', '#ef6c00', '#00838f'];
@@ -15,7 +17,7 @@ const MAX_COMPARE = 5;
 @Component({
   selector: 'app-coverage-page',
   standalone: true,
-  imports: [ChartComponent, StatePanelComponent],
+  imports: [ChartComponent, FiltersBarComponent, StatePanelComponent, VaccinationAnalyticsPanelComponent],
   template: `
     <section class="page" aria-labelledby="cov-title">
       <div>
@@ -25,16 +27,9 @@ const MAX_COMPARE = 5;
         </p>
       </div>
 
-      <form class="filters" (submit)="$event.preventDefault()" aria-label="Filtros do histórico">
-        <div class="field">
-          <label for="h-immunizer">Imunizante</label>
-          <select id="h-immunizer" [disabled]="immunizers().length === 0" (change)="onImmunizer($event)">
-            <option value="">{{ immunizers().length === 0 ? 'Indisponível nos dados' : 'Todos' }}</option>
-            @for (i of immunizers(); track i) {
-              <option [value]="i" [selected]="store.immunizer() === i">{{ i }}</option>
-            }
-          </select>
-        </div>
+      <app-filters-bar />
+      <app-vaccination-analytics-panel view="history" />
+      <div class="filters" aria-label="Opções da comparação histórica">
         <div class="field">
           <label for="h-metric">Indicador</label>
           <select id="h-metric" (change)="onMetric($event)">
@@ -51,7 +46,7 @@ const MAX_COMPARE = 5;
             }
           </select>
         </div>
-      </form>
+      </div>
 
       @if (selected().length > 0) {
         <ul class="chips" aria-label="Municípios selecionados">
@@ -69,7 +64,7 @@ const MAX_COMPARE = 5;
       @if (h.status === 'loading') {
         <app-state-panel kind="loading" />
       } @else if (h.status === 'error') {
-        <app-state-panel kind="error" [message]="h.message" />
+        <app-state-panel kind="error" [message]="h.message" [retryable]="true" (retry)="history.retry()" />
       } @else if (h.data.status !== 'ok') {
         <app-state-panel kind="unavailable" [message]="h.data.message" />
       } @else if (config) {
@@ -106,6 +101,22 @@ const MAX_COMPARE = 5;
       } @else {
         <app-state-panel kind="empty" message="Sem série histórica para os filtros." />
       }
+
+      <article class="card">
+        <h2>Comparação dos municípios selecionados</h2>
+        @if (selected().length < 2) {
+          <app-state-panel kind="empty" message="Selecione pelo menos dois municípios para comparar." />
+        } @else {
+          @if (comparisonChart(); as comparison) {
+            <app-chart
+              [config]="comparison"
+              [ariaLabel]="metric() === 'coverage' ? 'Comparação de cobertura por município no último ano disponível' : 'Comparação de déficit por município no último ano disponível'"
+            />
+          } @else {
+            <app-state-panel kind="empty" message="Não há valores válidos para os municípios selecionados." />
+          }
+        }
+      </article>
     </section>
   `,
 })
@@ -118,22 +129,16 @@ export class CoveragePage {
   protected readonly metric = signal<'coverage' | 'deficit'>('coverage');
   protected readonly selected = signal<string[]>([]);
 
-  private readonly filterOptions = loadOnce(() => this.coverageApi.filters());
   private readonly municipalityList = loadOnce(() => this.municipalitiesApi.list({}, 1000, 0));
 
   private readonly query = computed<CoverageFilters>(() => ({
-    immunizer: this.store.immunizer(),
+    ...this.store.filters(),
     municipality_code: this.selected(),
   }));
   protected readonly history = loadOnChange(this.query, (q) => this.coverageApi.history(q));
 
   protected readonly pct = formatPercent;
   protected readonly pts = formatPoints;
-
-  protected readonly immunizers = computed(() => {
-    const state = this.filterOptions();
-    return state.status === 'success' ? state.data.immunizers : [];
-  });
 
   protected readonly options = computed(() => {
     const state = this.municipalityList();
@@ -164,15 +169,49 @@ export class CoveragePage {
     );
   });
 
+  protected readonly comparisonChart = computed(() => {
+    const state = this.history();
+    if (
+      state.status !== 'success' ||
+      state.data.status !== 'ok' ||
+      this.selected().length < 2
+    ) {
+      return null;
+    }
+
+    const metric = this.metric() === 'coverage' ? 'mean_coverage' : 'mean_deficit';
+    const items = state.data.series.flatMap((series) => {
+      const points = series.points
+        .filter((point) => point[metric] !== null)
+        .sort((left, right) => left.year - right.year);
+      const latest = points.at(-1);
+      return latest?.[metric] === null || latest === undefined
+        ? []
+        : [{ label: `${this.nameOf(series.key)} (${latest.year})`, value: latest[metric] as number }];
+    });
+    if (items.length < 2) return null;
+
+    return barChart(
+      items.map((item) => item.label),
+      [
+        {
+          label: metric === 'mean_coverage' ? 'Cobertura (%)' : 'Déficit (p.p.)',
+          data: items.map((item) => item.value),
+          colors: items.map((_, index) => PALETTE[index % PALETTE.length]),
+        },
+      ],
+      {
+        horizontal: true,
+        yTitle: metric === 'mean_coverage' ? 'Cobertura (%)' : 'Déficit (p.p.)',
+      },
+    );
+  });
+
   protected nameOf(code: string): string {
     const state = this.municipalityList();
     if (state.status !== 'success') return code;
     const found = state.data.items.find((i) => i.municipality_code === code);
     return found ? municipalityLabel(found.municipality_name, code) : code;
-  }
-
-  protected onImmunizer(event: Event): void {
-    this.store.immunizer.set((event.target as HTMLSelectElement).value || null);
   }
 
   protected onMetric(event: Event): void {

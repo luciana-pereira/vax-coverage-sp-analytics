@@ -1,4 +1,4 @@
-import { barChart, doughnutChart, lineChart } from './charts';
+import { barChart, chartTable, doughnutChart, lineChart } from './charts';
 
 describe('chart builders', () => {
   it('builds a line chart with labels, series and y-axis title', () => {
@@ -98,5 +98,21 @@ describe('chart builders', () => {
         backgroundColor: ['#111111', '#222222', '#333333'],
       }),
     );
+  });
+
+  it('exposes the chart values as accessible tabular data', () => {
+    const config = lineChart(
+      [2023, 2024],
+      [{ label: 'Cobertura (%)', data: [82.5, null], color: '#123456' }],
+      'Cobertura (%)',
+    );
+
+    expect(chartTable(config)).toEqual({
+      series: ['Cobertura (%)'],
+      rows: [
+        { label: '2023', values: [82.5] },
+        { label: '2024', values: [null] },
+      ],
+    });
   });
 });

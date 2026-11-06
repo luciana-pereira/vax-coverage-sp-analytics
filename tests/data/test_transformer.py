@@ -72,6 +72,49 @@ def test_attach_target_population_matches_immunizer_when_available():
     assert out["population"].tolist() == [20, 10]
 
 
+def test_attach_target_population_rejects_universal_population_for_immunizers():
+    vaccination = pd.DataFrame(
+        {
+            "municipality_code": ["350010"],
+            "year": [2024],
+            "immunizer": ["SCR"],
+            "doses": [1],
+        }
+    )
+    municipal_total = pd.DataFrame(
+        {
+            "municipality_code": ["350010"],
+            "year": [2024],
+            "population": [35642],
+        }
+    )
+
+    with pytest.raises(KeyError, match="immunizer"):
+        attach_target_population(vaccination, municipal_total)
+
+
+def test_attach_target_population_rejects_duplicate_target_keys():
+    vaccination = pd.DataFrame(
+        {
+            "municipality_code": ["350010"],
+            "year": [2024],
+            "immunizer": ["SCR"],
+            "doses": [1],
+        }
+    )
+    targets = pd.DataFrame(
+        {
+            "municipality_code": ["350010", "350010"],
+            "year": [2024, 2024],
+            "immunizer": ["SCR", "SCR"],
+            "population": [10, 11],
+        }
+    )
+
+    with pytest.raises(ValueError, match="duplicadas"):
+        attach_target_population(vaccination, targets)
+
+
 def test_attach_target_population_requires_keys():
     with pytest.raises(KeyError):
         attach_target_population(pd.DataFrame({"doses": [1]}), pd.DataFrame({"x": [1]}))

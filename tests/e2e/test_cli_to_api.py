@@ -45,6 +45,7 @@ def _run(module: str, command: str, data_dir: Path) -> subprocess.CompletedProce
     for name in _configurable_env_names():
         env.pop(name, None)
     env["DATA_DIR"] = str(data_dir)
+    env["RAW_FILE_NAME"] = "pni_2024.jsonl"
     env["DEDUPLICATE_RAW"] = "false"
     return subprocess.run(
         [sys.executable, "-m", module, command],
@@ -76,9 +77,15 @@ def source_files(data_dir, processed_frame):
     )
     mapping_path = data_dir / "external" / "column_mapping.json"
     mapping_path.write_text(json.dumps(MAPPING), encoding="utf-8")
-    # processed_frame[["municipality_code", "year", "immunizer", "population"]].to_csv(
-    #     data_dir / "external" / "target_population.csv", index=False
-    # )
+    processed_frame[
+        ["municipality_code", "year", "immunizer", "population"]
+    ].drop_duplicates().to_csv(
+        data_dir / "external" / "target_population.csv", index=False
+    )
+    (data_dir / "external" / "coverage_targets.json").write_text(
+        json.dumps({"VAC_A": 95, "VAC_B": 95}),
+        encoding="utf-8",
+    )
     return data_dir
 
 

@@ -4,12 +4,16 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query
 
-from ...schemas.common import ErrorResponse
+from ...schemas.common import QUERY_ERROR_RESPONSES, ErrorResponse
 from ...schemas.municipality import MunicipalityDetailResponse, MunicipalityListResponse
 from ...services.municipality_service import MunicipalityService
 from ..deps import FilterDep, get_municipality_service
 
-router = APIRouter(prefix="/municipalities", tags=["municipalities"])
+router = APIRouter(
+    prefix="/municipalities",
+    tags=["municipalities"],
+    responses=QUERY_ERROR_RESPONSES,
+)
 
 ServiceDep = Annotated[MunicipalityService, Depends(get_municipality_service)]
 
