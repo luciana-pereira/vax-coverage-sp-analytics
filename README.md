@@ -59,6 +59,7 @@ O mapa atual utiliza **d3-geo e SVG**, não Leaflet. Sua visualização depende 
 ## Documentação técnica
 
 - [Backend, ingestão e machine learning](docs/backend.md).
+- [Deploy do backend no Render](docs/backend.md#6-deploy-do-backend-no-render).
 - [Frontend Angular, mapa e build](docs/frontend.md).
 - [Arquitetura](docs/architecture/overview.md) e [referência da API](docs/api/endpoints.md).
 - [Pipeline de dados](docs/data/pipeline.md), [fontes](docs/data/sources.md) e [pipeline de ML](docs/ml/ml-pipeline.md).

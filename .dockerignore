@@ -1,6 +1,10 @@
 .git
 .venv
 .env
+.env.*
+*.pem
+.agents
+.github
 **/__pycache__
 **/*.pyc
 .pytest_cache

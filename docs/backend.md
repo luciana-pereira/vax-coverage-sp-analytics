@@ -59,7 +59,7 @@ ml/
   inference/            Carregamento e aplicação do modelo persistido
 ```
 
-A aplicação adiciona `X-Request-ID` às respostas para correlação com os logs. Erros de validação e internos são apresentados em um envelope com `detail` e `request_id`; erros internos são registrados no servidor e retornam mensagem sanitizada. A configuração de CORS utiliza `CORS_ORIGINS`; a implementação atual permite o método `GET` nas requisições cross-origin.
+A aplicação adiciona `X-Request-ID` às respostas para correlação com os logs. Erros de validação e internos são apresentados em um envelope com `detail` e `request_id`; erros internos são registrados no servidor e retornam mensagem sanitizada. A configuração de CORS utiliza `CORS_ORIGINS` e permite os métodos `GET` e `POST`, incluindo o preflight do upload CSV.
 
 ### Serviços e repositórios
 
@@ -252,3 +252,53 @@ python scripts/export_openapi.py
 ```
 
 Veja também a [visão de arquitetura](architecture/overview.md), o [contrato da API](api/endpoints.md) e o [README principal](../README.md).
+
+## 6. Deploy do backend no Render
+
+O [Blueprint](../render.yaml) na raiz usa o runtime Docker, com contexto na raiz do repositório e `backend/Dockerfile`. Esse contexto é necessário porque a API também importa `ml/`. O Dockerfile instala `backend/requirements.txt` no build e inicia `uvicorn app.main:app` em `0.0.0.0`, usando `PORT` quando definida ou `8000` como padrão local. Em Docker, build e start são definidos no Dockerfile; não há `buildCommand` ou `startCommand` no Blueprint.
+
+### Criar o serviço
+
+1. No Render, crie um **Blueprint** a partir do repositório e da branch que contém `render.yaml`. Revise região, plano e custos antes de confirmar: o arquivo não cria disco persistente nem fixa um plano gratuito.
+2. Informe `CORS_ORIGINS` ao criar o Blueprint ou na configuração do serviço. Use a URL HTTPS final da Vercel, sem barra final, por exemplo `https://meu-projeto.vercel.app`. Para mais de uma origem, separe por vírgula.
+3. Após o deploy, consulte `https://<seu-servico>.onrender.com/api/v1/health`, `/docs` e `/api/v1/data-quality`. O health verifica apenas que a API está em execução, não a presença dos dados.
+4. Configure a URL pública da API no build do frontend Vercel e faça um novo deploy do frontend. A URL `http://localhost:8000/api/v1` compilada por padrão não aponta para o Render.
+
+### Variáveis de ambiente
+
+| Variável | Orientação |
+|---|---|
+| `PORT` | O Render normalmente a fornece automaticamente; o container usa esse valor. Não é necessário defini-la manualmente. |
+| `APP_ENV` | O Blueprint configura `production`. A aplicação lê `APP_ENV`, **não** `ENVIRONMENT`. |
+| `CORS_ORIGINS` | Obrigatória no Blueprint (`sync: false`): lista de origens exatas separadas por vírgula. Prefira a origem final do seu projeto. |
+| `DATA_DIR` | Opcional; padrão `/app/data`. Configure, por exemplo, `/var/data` se montar um disco nesse caminho. |
+| `GEOJSON_CODE_PROPERTY` | Nome da propriedade de código municipal no GeoJSON disponibilizado; necessário para associar os polígonos aos dados. |
+| `FEATURES_PATH`, `ML_DATASET_PATH`, `MODEL_PATH`, `METRICS_PATH`, `GEOJSON_PATH`, `DUCKDB_PATH` | Opcionais para caminhos específicos. Se omitidas, usam os caminhos padrão relativos a `DATA_DIR`; se definidas, use caminhos absolutos acessíveis no serviço. |
+| `VACCINATION_DATABASE_URL`, `AIVEN_DATABASE_URL` ou `DATABASE_URL` | Opcional para analytics PostgreSQL; configure apenas uma fonte pretendida, com SSL, e mantenha credenciais no painel do Render, nunca no Git. |
+| `VACCINATION_TABLE`, `LOG_LEVEL` | Opcionais para a tabela PostgreSQL e o nível de log. |
+
+Para previews da Vercel, `CORS_ORIGINS` aceita explicitamente `https://*.vercel.app` além de origens exatas. Essa opção libera **todos os subdomínios Vercel**, inclusive projetos de terceiros; só a habilite se esse risco for aceitável. O padrão local continua sendo `http://localhost:4200`.
+
+### Dados e persistência
+
+O `.dockerignore` exclui `data/`, `.env` e certificados locais do contexto. Assim, **o deploy não transfere os arquivos locais** nem garante que eles existam no Render. Sem artefatos, as rotas respondem com os estados de indisponibilidade previstos; o health pode continuar retornando `ok`.
+
+Para disponibilizar os dados de forma persistente, uma opção é anexar um [disco persistente Render](https://render.com/docs/disks) a um serviço compatível e pago, montá-lo em `/var/data` e configurar `DATA_DIR=/var/data`. Provisione nele, por um processo autorizado, os arquivos validados necessários:
+
+```text
+/var/data/
+  processed/vaccination.parquet
+  processed/features.parquet
+  processed/ml_dataset.parquet
+  processed/vax.duckdb
+  models/vax_deficit_model.joblib
+  models/metrics.json
+  external/sp_municipios.geojson
+  raw/                       # JSONL, se usar a fonte local de analytics
+```
+
+Somente forneça dados para os recursos que deseja habilitar. A API consulta os Parquet de features e ML com DuckDB em memória; `vax.duckdb` é produzido pelo pipeline, mas não substitui esses Parquet nas rotas. População-alvo, metas e outros arquivos de `external/` também são necessários para reproduzir o pipeline e o treino. Preserve as permissões de leitura para o usuário não root do container e use apenas arquivos de modelo confiáveis.
+
+Um disco novo não é preenchido automaticamente: transfira ou gere os artefatos no ambiente de execução, com controles de acesso apropriados. O disco não está disponível durante o build; não inclua dados pessoais, segredos ou datasets privados na imagem ou no repositório. Sem disco, o filesystem de execução do Render é efêmero e alterações locais se perdem em reinícios e deploys. Discos persistentes têm limitações de plano, escalonamento e disponibilidade; consulte a documentação do Render antes de habilitá-los.
+
+Verifique ainda os caminhos efetivos e estados em `/api/v1/data-quality`, `/api/v1/coverage` e `/api/v1/predictions`. Para executar o pipeline e gravar no disco, providencie separadamente suas dependências e o processo operacional adequado; a imagem desta API não executa extração ou treinamento no startup.

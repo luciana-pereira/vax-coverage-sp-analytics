@@ -35,6 +35,14 @@ def create_app() -> FastAPI:
     settings = get_settings()
     configure_logging(settings.log_level)
 
+    vercel_preview = "https://*.vercel.app"
+    origins = [origin for origin in settings.cors_origins if origin != vercel_preview]
+    origin_regex = (
+        r"https://[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?\.vercel\.app"
+        if vercel_preview in settings.cors_origins
+        else None
+    )
+
     app = FastAPI(
         title=settings.app_name,
         version=settings.app_version,
@@ -48,8 +56,9 @@ def create_app() -> FastAPI:
     )
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=settings.cors_origins,
-        allow_methods=["GET"],
+        allow_origins=origins,
+        allow_origin_regex=origin_regex,
+        allow_methods=["GET", "POST"],
         allow_headers=["*"],
     )
 
