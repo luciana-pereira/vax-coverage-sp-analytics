@@ -115,7 +115,7 @@ def create_app() -> FastAPI:
             for name, value in exc.headers.items():
                 response.headers[name] = value
         return response
-    
+
     @app.exception_handler(FileNotFoundError)
     async def file_not_found_exception_handler(request: Request, exc: FileNotFoundError):
         return JSONResponse(
