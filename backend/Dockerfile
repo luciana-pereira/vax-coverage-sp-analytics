@@ -13,6 +13,10 @@ RUN pip install --no-cache-dir -r backend/requirements.txt
 COPY backend backend
 COPY ml ml
 
+RUN python -m backend.scripts.init_db \
+    --input backend/data/demo/vaccination.csv \
+    --output backend/data/demo/vax.duckdb
+
 RUN useradd --create-home appuser
 USER appuser
 

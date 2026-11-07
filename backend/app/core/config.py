@@ -33,6 +33,7 @@ class Settings:
     cors_origins: list[str]
     data_dir: Path
     raw_dir: Path
+    analytics_db_path: Path | None
     processed_file: Path
     duckdb_path: Path
     features_path: Path
@@ -56,6 +57,9 @@ def build_settings() -> Settings:
         cors_origins=_list("CORS_ORIGINS", "http://localhost:4200"),
         data_dir=data_dir,
         raw_dir=data_dir / "raw",
+        analytics_db_path=(
+            _path("ANALYTICS_DB_PATH", ROOT).resolve() if os.getenv("ANALYTICS_DB_PATH") else None
+        ),
         processed_file=data_dir / "processed" / "vaccination.parquet",
         duckdb_path=_path("DUCKDB_PATH", data_dir / "processed" / "vax.duckdb"),
         features_path=_path("FEATURES_PATH", data_dir / "processed" / "features.parquet"),

@@ -73,6 +73,15 @@ def create_app() -> FastAPI:
     async def not_found_handler(request: Request, exc: NotFoundError) -> JSONResponse:
         return _error_response(request, 404, str(exc))
 
+    @app.exception_handler(FileNotFoundError)
+    async def missing_file_handler(request: Request, exc: FileNotFoundError) -> JSONResponse:
+        logger.warning(
+            "Arquivo necessário não encontrado request_id=%s: %s", _request_id(request), exc
+        )
+        return _error_response(
+            request, 404, "A base de dados ainda não foi carregada ou inicializada."
+        )
+
     @app.exception_handler(RequestValidationError)
     async def validation_handler(request: Request, _: RequestValidationError) -> JSONResponse:
         return _error_response(request, 422, "Parâmetros ou dados inválidos.")

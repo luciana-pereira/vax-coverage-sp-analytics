@@ -15,3 +15,5 @@ notebooks
 tests
 backend/tests
 data
+backend/data/demo/*.duckdb
+backend/data/demo/*.duckdb.wal

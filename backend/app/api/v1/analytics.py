@@ -15,6 +15,7 @@ from ...repositories.vaccination_analytics_repository import (
     VaccinationAnalyticsRepository,
 )
 from ...schemas.analytics import AnalyticsUploadResponse, VaccinationAnalyticsResponse
+from ...schemas.common import ErrorResponse
 from ...services.vaccination_analytics_service import VaccinationAnalyticsService
 
 router = APIRouter(prefix="/analytics", tags=["analytics"])
@@ -23,7 +24,9 @@ UPLOAD_TTL_SECONDS = 1800
 
 
 def get_analytics_service(settings: SettingsDep) -> VaccinationAnalyticsService:
-    return VaccinationAnalyticsService(VaccinationAnalyticsRepository(settings.raw_dir))
+    return VaccinationAnalyticsService(
+        VaccinationAnalyticsRepository(settings.raw_dir, settings.analytics_db_path)
+    )
 
 
 AnalyticsServiceDep = Annotated[VaccinationAnalyticsService, Depends(get_analytics_service)]
@@ -37,7 +40,13 @@ AnalyticsServiceDep = Annotated[VaccinationAnalyticsService, Depends(get_analyti
         "Município do paciente e município do estabelecimento permanecem separados. "
         "Identificadores pessoais e linhas individuais nunca são retornados."
     ),
-    responses={410: {"description": "A sessão de CSV expirou."}},
+    responses={
+        404: {
+            "model": ErrorResponse,
+            "description": "A base de dados ainda não foi carregada ou inicializada.",
+        },
+        410: {"description": "A sessão de CSV expirou."},
+    },
 )
 def get_analytics(
     request: Request,

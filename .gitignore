@@ -30,6 +30,7 @@ data/models/*
 !data/**/.gitkeep
 *.duckdb
 *.duckdb.wal
+!backend/data/demo/vax.duckdb
 
 # ML artifacts
 *.joblib

@@ -97,7 +97,7 @@ API PNI ── extract ──► data/raw/*.jsonl
 2. **Transformação:** `transform` lê o JSONL configurado por `RAW_FILE_NAME`, deriva ano e doses quando possível, aplica filtro de UF quando presente e mapeia colunas para o esquema canônico. A população-alvo é associada por município, ano e imunizante.
 3. **Validação:** o pipeline verifica as colunas obrigatórias (`municipality_code`, `immunizer`, `year`, `doses`, `population`), valores inválidos, duplicidades e alinhamento com o CSV de população-alvo. Falhas bloqueiam a atualização do Parquet ou da tabela DuckDB.
 4. **Parquet e carga:** o resultado validado é salvo em `data/processed/vaccination.parquet`. O comando `load` grava ou substitui a tabela `vaccination` no banco local `data/processed/vax.duckdb`.
-5. **Leitura pela API:** a API de cobertura e predições consulta diretamente `features.parquet` e `ml_dataset.parquet` com conexões DuckDB **em memória** e `read_parquet`; não depende da tabela do arquivo `vax.duckdb` para essas rotas. A API de analytics também pode agregar JSONL local ou, quando configurado, consultar PostgreSQL; o resultado é agregado antes de ser enviado ao cliente.
+5. **Leitura pela API:** a API de cobertura e predições consulta diretamente `features.parquet` e `ml_dataset.parquet` com conexões DuckDB **em memória** e `read_parquet`; não depende da tabela do arquivo `vax.duckdb` para essas rotas. A API de analytics pode agregar JSONL local, consultar PostgreSQL ou usar uma base agregada de demonstração explicitamente configurada.
 
 O arquivo de mapeamento e o CSV de população-alvo são insumos necessários à transformação. População municipal total não deve ser utilizada como substituto da população-alvo de cada imunizante. `DEDUPLICATE_RAW` deve refletir a existência de identificadores apropriados; linhas idênticas sem identificador de dose não são necessariamente duplicatas. Consulte [pipeline de dados](data/pipeline.md) e [fontes de dados](data/sources.md).
 
@@ -258,3 +258,16 @@ Veja também a [visão de arquitetura](architecture/overview.md), o [contrato da
 ### Artefatos de dados
 
 A API consulta os arquivos Parquet de features e ML com DuckDB em memória; `vax.duckdb` é produzido pelo pipeline, mas não substitui esses arquivos nas rotas. População-alvo, metas e outros arquivos de `external/` também são necessários para reproduzir o pipeline e o treinamento. Use apenas arquivos de modelo confiáveis e verifique os caminhos e estados em `/api/v1/data-quality`, `/api/v1/coverage` e `/api/v1/predictions`.
+
+### Base sintética para demonstração
+
+O arquivo `backend/data/demo/vaccination.csv` contém apenas dados inventados. Para gerar a base agregada localmente, execute na raiz:
+
+```powershell
+python -m backend.scripts.init_db --input backend/data/demo/vaccination.csv --output backend/data/demo/vax.duckdb
+$env:ANALYTICS_DB_PATH = "backend/data/demo/vax.duckdb"
+```
+
+O script também aceita Parquet com as colunas de vacinação reconhecidas pelo upload CSV. Use apenas dados sintéticos: essa base é sempre identificada na API e na interface como demonstração, não como indicador real. O script valida a entrada, grava apenas agregados e não sobrescreve uma base existente. A exceção em `.gitignore` permite versionar somente a base de demonstração; nunca grave nela dados reais ou pessoais.
+
+`ANALYTICS_DB_PATH` aceita caminho absoluto ou relativo à raiz do repositório, independentemente do diretório de execução. Quando configurado, é usado apenas se PostgreSQL não estiver disponível e o JSONL local não existir. Sem fonte disponível, `/api/v1/analytics` retorna 404 com mensagem amigável e `request_id`. A imagem Docker gera a base de demonstração durante o build; o Blueprint a habilita explicitamente. A base não fornece os Parquet de cobertura, dados geográficos ou modelos de predição. Para usar dados reais, provisione as fontes adequadas e remova ou ajuste a configuração de demonstração.

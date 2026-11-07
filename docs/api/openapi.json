@@ -162,6 +162,16 @@
               }
             }
           },
+          "404": {
+            "description": "A base de dados ainda não foi carregada ou inicializada.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "410": {
             "description": "A sessão de CSV expirou."
           },

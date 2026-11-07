@@ -50,6 +50,7 @@ Retorna agregados mensais, por sexo, faixa etária, vacina e município. Municí
 | Código | Corpo |
 |---|---|
 | 200 | VaccinationAnalyticsResponse |
+| 404 | ErrorResponse |
 | 410 | A sessão de CSV expirou. |
 | 422 | HTTPValidationError |
 
