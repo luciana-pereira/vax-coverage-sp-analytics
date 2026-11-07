@@ -30,6 +30,7 @@ data/models/*
 !data/**/.gitkeep
 *.duckdb
 *.duckdb.wal
+!backend/data/demo/vax.duckdb
 
 # ML artifacts
 *.joblib
@@ -54,3 +55,6 @@ Thumbs.db
 *.log
 *:Zone.Identifier
 *:sec.endpointdlp
+
+.agents/
+.github/agents/

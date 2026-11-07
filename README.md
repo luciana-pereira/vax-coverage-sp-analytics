@@ -4,6 +4,17 @@ Projeto Integrador IV (UNIVESP) para analisar a **cobertura vacinal municipal no
 
 Os resultados dependem da disponibilidade e da qualidade dos dados, das populações-alvo e das metas utilizadas. As previsões são apoio à análise e não substituem a avaliação dos profissionais de saúde.
 
+## 🌐 Links de Produção / Deploy
+
+| Serviço | Acesso | Situação / verificação |
+|---|---|---|
+| App / Frontend (Vercel) | [Abrir aplicação](https://vax-coverage-sp-analytics-92no9wuto-lucianapereiras-projects.vercel.app) | Pode exigir autenticação; confira o acesso no navegador. |
+| Backend API (Render) | [URL base da API](https://vax-coverage-sp-analytics.onrender.com/api/v1) | [Consultar saúde da API](https://vax-coverage-sp-analytics.onrender.com/api/v1/health). |
+| OpenAPI / Swagger UI | [Documentação interativa](https://vax-coverage-sp-analytics.onrender.com/docs) | Consulta e teste das rotas. |
+| ReDoc | [Referência da API](https://vax-coverage-sp-analytics.onrender.com/redoc) | Consulta dos contratos. |
+
+Os indicadores acima não são monitoramento em tempo real. A URL do frontend pode exigir autenticação na Vercel, conforme as configurações de proteção do deployment. Os serviços de produção podem levar mais tempo para responder após um período de inatividade.
+
 ## 👥 Equipe de Desenvolvimento
 
 - Camila Costa Amorim
@@ -186,6 +197,8 @@ O módulo do projeto é `app.main:app` em `backend/app/main.py`; `uvicorn main:a
 
 O frontend de desenvolvimento usa `http://localhost:8000/api/v1`. Se alterar host ou portas, ajuste a configuração do frontend e `CORS_ORIGINS` no backend.
 
+Para acessar a aplicação hospedada, use os [links de produção](#-links-de-produção--deploy); não é necessário iniciar os serviços locais para consultá-los. A conexão entre frontend e API depende da configuração da URL da API no build e da autorização da origem do frontend em `CORS_ORIGINS` no backend.
+
 ### Linux/macOS/WSL
 
 Como alternativa, execute `./scripts/bootstrap.sh` e depois `./scripts/run.sh`. Os scripts aceitam `--force` no bootstrap e `--backend` ou `--frontend` no comando de execução.
@@ -226,6 +239,20 @@ Detalhes em [docs/ml/ml-pipeline.md](docs/ml/ml-pipeline.md).
 ## API e Swagger
 
 A documentação das rotas é derivada do OpenAPI real: [docs/api/endpoints.md](docs/api/endpoints.md). Para regenerar após mudar a API: `python scripts/export_openapi.py` (um teste falha se `docs/api/openapi.json` ficar desatualizado).
+
+Exemplos de consulta à API de produção no PowerShell:
+
+```powershell
+$api = "https://vax-coverage-sp-analytics.onrender.com/api/v1"
+Invoke-RestMethod "$api/health"
+Invoke-RestMethod "$api/data-quality"
+Invoke-RestMethod "$api/models"
+Invoke-RestMethod "$api/predictions?limit=20&offset=0"
+```
+
+O endpoint de saúde confirma que a API está em execução, mas não garante a disponibilidade de dados ou modelos.
+
+Para consultar outra rota, acrescente o caminho da [referência de endpoints](docs/api/endpoints.md) à URL base, sem repetir `/api/v1`. Para consultar uma instância local, substitua `$api` por `http://localhost:8000/api/v1`.
 
 ## Dashboard
 

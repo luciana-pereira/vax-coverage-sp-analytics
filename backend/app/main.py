@@ -35,6 +35,14 @@ def create_app() -> FastAPI:
     settings = get_settings()
     configure_logging(settings.log_level)
 
+    vercel_preview = "https://*.vercel.app"
+    origins = [origin for origin in settings.cors_origins if origin != vercel_preview]
+    origin_regex = (
+        r"https://[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?\.vercel\.app"
+        if vercel_preview in settings.cors_origins
+        else None
+    )
+
     app = FastAPI(
         title=settings.app_name,
         version=settings.app_version,
@@ -48,8 +56,9 @@ def create_app() -> FastAPI:
     )
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=settings.cors_origins,
-        allow_methods=["GET"],
+        allow_origins=origins,
+        allow_origin_regex=origin_regex,
+        allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
         allow_headers=["*"],
     )
 
@@ -63,6 +72,15 @@ def create_app() -> FastAPI:
     @app.exception_handler(NotFoundError)
     async def not_found_handler(request: Request, exc: NotFoundError) -> JSONResponse:
         return _error_response(request, 404, str(exc))
+
+    @app.exception_handler(FileNotFoundError)
+    async def missing_file_handler(request: Request, exc: FileNotFoundError) -> JSONResponse:
+        logger.warning(
+            "Arquivo necessário não encontrado request_id=%s: %s", _request_id(request), exc
+        )
+        return _error_response(
+            request, 404, "A base de dados ainda não foi carregada ou inicializada."
+        )
 
     @app.exception_handler(RequestValidationError)
     async def validation_handler(request: Request, _: RequestValidationError) -> JSONResponse:

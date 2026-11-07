@@ -34,6 +34,7 @@ def settings(tmp_path, monkeypatch) -> Settings:
         "COVERAGE_TARGETS_PATH",
         "GEOJSON_PATH",
         "CORS_ORIGINS",
+        "ANALYTICS_DB_PATH",
     ):
         monkeypatch.delenv(name, raising=False)
     monkeypatch.setenv("DATA_DIR", str(tmp_path / "data"))

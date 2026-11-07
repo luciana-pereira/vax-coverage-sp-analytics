@@ -393,15 +393,48 @@ def _load_local_cached(path_value: str, modified_ns: int, size: int) -> Analytic
     )
 
 
+@lru_cache(maxsize=2)
+def _load_demo_cached(path_value: str, modified_ns: int, size: int) -> AnalyticsSnapshot:
+    del modified_ns, size
+    path = Path(path_value)
+    con = duckdb.connect(str(path), read_only=True)
+    try:
+        cursor = con.execute("SELECT * FROM analytics_groups ORDER BY year, month")
+        columns = [column[0] for column in cursor.description]
+        rows = tuple(dict(zip(columns, row, strict=True)) for row in cursor.fetchall())
+        metadata = con.execute("SELECT dimensions FROM analytics_metadata").fetchone()
+        if metadata is None:
+            raise ValueError("Metadados da base de demonstração ausentes.")
+        dimensions = json.loads(metadata[0])
+    finally:
+        con.close()
+    return AnalyticsSnapshot(
+        rows=rows,
+        source="Demonstração | dados sintéticos",
+        source_updated_at=datetime.fromtimestamp(path.stat().st_mtime).astimezone(),
+        total_rows=sum(int(row["doses"]) for row in rows),
+        statewide=_statewide(rows),
+        dimensions=dimensions,
+        warnings=("Dados sintéticos de demonstração; não representam indicadores reais.",),
+    )
+
+
 class VaccinationAnalyticsRepository:
-    def __init__(self, raw_dir: Path) -> None:
+    def __init__(self, raw_dir: Path, analytics_db_path: Path | None = None) -> None:
         self.raw_dir = raw_dir
+        self.analytics_db_path = analytics_db_path
 
     def local_snapshot(self) -> AnalyticsSnapshot:
         configured_name = os.getenv("RAW_FILE_NAME", "pni_2024.jsonl")
         path = self.raw_dir / configured_name
         if not path.is_file():
-            raise FileNotFoundError("Arquivo local de vacinação não encontrado.")
+            if self.analytics_db_path is None:
+                raise FileNotFoundError("Arquivo local de vacinação não encontrado.")
+            demo_path = self.analytics_db_path.resolve()
+            if not demo_path.is_file():
+                raise FileNotFoundError("Base de demonstração não encontrada.")
+            stat = demo_path.stat()
+            return _load_demo_cached(str(demo_path), stat.st_mtime_ns, stat.st_size)
         stat = path.stat()
         return _load_local_cached(str(path.resolve()), stat.st_mtime_ns, stat.st_size)
 

@@ -2,6 +2,8 @@
 
 Este documento descreve a aplicação web em `frontend/`, suas rotas, integração com a API, visualizações e processo de build. Para os contratos REST e o pipeline de dados, consulte [backend e ML](backend.md) e [endpoints](api/endpoints.md).
 
+Aplicação de produção: [Vax Coverage SP Analytics](https://vax-coverage-sp-analytics-92no9wuto-lucianapereiras-projects.vercel.app). O acesso pode exigir autenticação, conforme a proteção configurada no deployment.
+
 ## 1. Arquitetura SPA
 
 O frontend é uma **single-page application (SPA)** em Angular 19 e TypeScript, com componentes standalone, signals e carregamento das páginas sob demanda por `loadComponent`. O Angular Router troca o conteúdo do `router-outlet` sem substituir o shell compartilhado. O projeto usa SCSS para estilos globais, Chart.js para gráficos e d3-geo para projeção geográfica.
@@ -31,7 +33,7 @@ frontend/src/
 
 O `ShellComponent` mantém a navegação e envolve o cabeçalho e o `router-outlet` em `<main>`. Os serviços em `core/services` comunicam-se com a API via `ApiClient`; componentes não acessam diretamente DuckDB ou Parquet. Os estados de carregamento, erro, ausência de dados e resultados vazios são apresentados explicitamente.
 
-O `errorInterceptor` converte falhas HTTP em mensagens de erro legíveis. Os helpers `loadOnChange` e `loadOnce` administram estados assíncronos, e `core/models/api.models.ts` define os tipos usados para as respostas da API.
+O `errorInterceptor` converte falhas HTTP em mensagens de erro legíveis e estabelece um limite de 90 segundos entre eventos da requisição. Requisições GET à API são repetidas uma vez após um segundo em caso de timeout, falha de rede ou HTTP 502, 503 ou 504; operações de escrita não são repetidas automaticamente. Os helpers `loadOnChange` e `loadOnce` administram estados assíncronos, e `core/models/api.models.ts` define os tipos usados para as respostas da API.
 
 ### Rotas
 
@@ -49,9 +51,9 @@ A rota vazia e caminhos desconhecidos redirecionam para `/dashboard`. As página
 
 ### Configuração e comunicação
 
-`src/environments/environment.ts` define `apiBaseUrl` para produção; `environment.development.ts` é usado pelo servidor de desenvolvimento. Atualmente ambos apontam para `http://localhost:8000/api/v1`. O valor é injetado por `API_BASE_URL` em `app.config.ts`.
+`src/environments/environment.ts` define `apiBaseUrl` para produção; `environment.development.ts` é usado pelo servidor de desenvolvimento. Ambos usam `http://localhost:8000/api/v1` por padrão, inclusive no build local e no Docker. O valor é injetado pelo token Angular `API_BASE_URL` em `app.config.ts`.
 
-Para implantação, configure a URL acessível **pelo navegador do usuário** antes do build. `localhost` em um navegador remoto aponta para a máquina do usuário, não para o servidor da aplicação. Quando frontend e API têm origens diferentes, configure `CORS_ORIGINS` no backend e verifique os métodos permitidos para cada fluxo.
+Quando frontend e API têm origens diferentes, configure `CORS_ORIGINS` no backend. A API permite GET, POST, PUT, DELETE e OPTIONS cross-origin para as origens configuradas.
 
 Os serviços incluem `CoverageService`, `MunicipalitiesService`, `PredictionsService`, `ModelsService`, `DataQualityService`, `GeoService` e `VaccinationAnalyticsService`. O `FilterStore` compartilha filtros de cobertura; o painel de análises agregadas mantém filtros próprios e usa `VaccinationAnalyticsSession` para armazenar o token temporário do CSV.
 
