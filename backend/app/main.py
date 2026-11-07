@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from uuid import uuid4
 
-from fastapi import FastAPI, HTTPException, Request, status
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -115,19 +115,6 @@ def create_app() -> FastAPI:
             for name, value in exc.headers.items():
                 response.headers[name] = value
         return response
-
-    @app.exception_handler(FileNotFoundError)
-    async def file_not_found_exception_handler(request: Request, exc: FileNotFoundError):
-        return JSONResponse(
-            status_code=status.HTTP_404_NOT_FOUND,
-            content={
-                "detail": str(exc),
-                "message": (
-                    "Base de dados vacinal não encontrada no servidor. "
-                    "Envie um arquivo CSV via upload para inicializar."
-                ),
-            },
-        )
 
     @app.exception_handler(Exception)
     async def unexpected_error_handler(request: Request, exc: Exception) -> JSONResponse:
