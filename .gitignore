@@ -54,3 +54,6 @@ Thumbs.db
 *.log
 *:Zone.Identifier
 *:sec.endpointdlp
+
+.agents/
+.github/agents/
