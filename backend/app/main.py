@@ -122,7 +122,10 @@ def create_app() -> FastAPI:
             status_code=status.HTTP_404_NOT_FOUND,
             content={
                 "detail": str(exc),
-                "message": "Base de dados vacinal não encontrada no servidor. Envie um arquivo CSV via upload para inicializar."
+                "message": (
+                    "Base de dados vacinal não encontrada no servidor. "
+                    "Envie um arquivo CSV via upload para inicializar."
+                ),
             },
         )
 
