@@ -75,6 +75,7 @@ def test_missing_analytics_source_returns_friendly_404(settings, make_client, cl
     response = make_client().get("/api/v1/analytics")
     assert response.status_code == 404
     assert response.json()["detail"] == "A base de dados ainda não foi carregada ou inicializada."
+    assert response.json()["request_id"] == response.headers["X-Request-ID"]
     assert response.json()["request_id"]
 
 
@@ -86,6 +87,8 @@ def test_missing_configured_db_returns_friendly_404(settings, make_client, clean
     response = client.get("/api/v1/analytics")
     assert response.status_code == 404
     assert response.json()["detail"] == "A base de dados ainda não foi carregada ou inicializada."
+    assert response.json()["request_id"] == response.headers["X-Request-ID"]
+    assert response.json()["request_id"]
     assert "missing.duckdb" not in response.text
 
 
