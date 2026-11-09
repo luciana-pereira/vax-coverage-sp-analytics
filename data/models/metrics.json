@@ -9,7 +9,8 @@
     "year",
     "coverage_prev",
     "deficit_prev",
-    "coverage_delta"
+    "coverage_delta",
+    "immunizer"
   ],
   "classes": [
     "baixo",
@@ -18,6 +19,11 @@
     "critico"
   ],
   "best_model": "random_forest",
+  "selection": {
+        "criterion": "f1_macro",
+        "split": "test",
+        "note": "Menos de 3 períodos: escolha feita no conjunto de teste (otimista)."
+  },
   "split": {
     "scheme": "temporal",
     "train_years": [

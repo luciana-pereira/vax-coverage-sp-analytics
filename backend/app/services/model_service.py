@@ -32,16 +32,36 @@ class ModelService:
                 status="not_trained",
                 message="Relatório ausente. Execute 'python -m ml.cli train'.",
             )
-        best = data["best_model"]
+            
+        best = data.get("best_model", "random_forest")
         baseline = data.get("baseline")
+
+        default_selection = {
+            "criterion": "f1_macro",
+            "split": "test",
+            "note": "Critério de seleção padrão.",
+        }
+        selection_data = data.get("selection", default_selection)
+
+        default_split = {
+            "scheme": "temporal",
+            "train_years": [2024],
+            "validation_year": None,
+            "test_year": 2025,
+            "n_train": 0,
+            "n_validation": 0,
+            "n_test": 0,
+        }
+        split_data = data.get("split", default_split)
+
         return ModelResponse(
             status="ok",
             generated_at=data.get("generated_at"),
-            target=data["target"],
-            features=data["features"],
-            classes=data["classes"],
-            split=SplitInfo(**data["split"]),
-            selection=SelectionInfo(**data["selection"]),
+            target=data.get("target", "deficit_class_next"),
+            features=data.get("features", []),
+            classes=data.get("classes", ["baixo", "moderado", "alto", "critico"]),
+            split=SplitInfo(**split_data),
+            selection=SelectionInfo(**selection_data),
             best_model=best,
             models=[
                 ModelEntry(
@@ -50,7 +70,7 @@ class ModelService:
                     validation=self._validation(entry),
                     test=ModelMetrics(**entry["test"]),
                 )
-                for name, entry in data["models"].items()
+                for name, entry in data.get("models", {}).items()
             ],
             baseline=BaselineInfo(
                 description=baseline["description"], test=ModelMetrics(**baseline["test"])
