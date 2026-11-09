@@ -1,0 +1,10 @@
+﻿{
+  "immunizer": "co_vacina",
+  "immunizer_name": "ds_vacina",
+  "date": "dt_vacina",
+  "birth_date": "dt_nascimento_paciente",
+  "sex": "tp_sexo_paciente",
+  "municipality_code": "co_municipio_paciente",
+  "cnes_code": "co_cnes_estabelecimento",
+  "facility_name": "no_razao_social_estabelecimento"
+}
