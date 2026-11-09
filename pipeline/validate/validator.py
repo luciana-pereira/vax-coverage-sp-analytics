@@ -88,9 +88,7 @@ def validate_population_alignment(
             .astype("string")
         )
         frame["year"] = (
-            pd.to_numeric(frame["year"], errors="coerce")
-            .astype("Int64")
-            .astype("string")
+            pd.to_numeric(frame["year"], errors="coerce").astype("Int64").astype("string")
         )
         frame["immunizer"] = frame["immunizer"].astype("string").str.strip()
     actual["population_dataset"] = pd.to_numeric(actual["population_dataset"], errors="coerce")

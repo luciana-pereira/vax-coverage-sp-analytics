@@ -215,8 +215,7 @@ class CoverageRepository(ParquetSource):
             extra += ", COUNT(DISTINCT municipality_code) AS municipalities"
         if "year" in columns:
             extra += (
-                ", MIN(CAST(year AS INTEGER)) AS year_min, "
-                "MAX(CAST(year AS INTEGER)) AS year_max"
+                ", MIN(CAST(year AS INTEGER)) AS year_min, MAX(CAST(year AS INTEGER)) AS year_max"
             )
         stats = self.rows(f"SELECT COUNT(*) AS n{extra} FROM {self._from}")[0]
         records_by_year = []
@@ -261,7 +260,7 @@ class PredictionRepository(ParquetSource):
             params.append(year)
         else:
             clauses.append(
-                f'CAST(year AS INTEGER) = (SELECT MAX(CAST(year AS INTEGER)) FROM {self._from} '
+                f"CAST(year AS INTEGER) = (SELECT MAX(CAST(year AS INTEGER)) FROM {self._from} "
                 f'WHERE "{target_column}" IS NULL)'
             )
         if municipality_code is not None and "municipality_code" in columns:

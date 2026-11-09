@@ -46,11 +46,15 @@ def _matches_filters(
 ) -> bool:
     if year is not None and int(row["year"]) != year:
         return False
-    if vaccine is not None and _vaccine_key(
-        row.get("vaccine_code"),
-        row.get("vaccine_abbreviation"),
-        row.get("vaccine_description"),
-    ) != vaccine:
+    if (
+        vaccine is not None
+        and _vaccine_key(
+            row.get("vaccine_code"),
+            row.get("vaccine_abbreviation"),
+            row.get("vaccine_description"),
+        )
+        != vaccine
+    ):
         return False
     if age_group is not None and row.get("age_group") != age_group:
         return False

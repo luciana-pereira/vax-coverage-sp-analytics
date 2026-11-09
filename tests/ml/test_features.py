@@ -12,11 +12,13 @@ from ml.features.build_features import (
 
 
 def test_deficit():
-    df = pd.DataFrame({
-        "doses": [80],
-        "population": [100],
-        "year": [2024],
-    })
+    df = pd.DataFrame(
+        {
+            "doses": [80],
+            "population": [100],
+            "year": [2024],
+        }
+    )
     out = build_vaccination_features(df, "doses", "population", "year", meta=95)
     assert out.loc[0, "coverage"] == 80
     assert out.loc[0, "deficit"] == 15

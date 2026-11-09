@@ -79,9 +79,7 @@ def source_files(data_dir, processed_frame):
     mapping_path.write_text(json.dumps(MAPPING), encoding="utf-8")
     processed_frame[
         ["municipality_code", "year", "immunizer", "population"]
-    ].drop_duplicates().to_csv(
-        data_dir / "external" / "target_population.csv", index=False
-    )
+    ].drop_duplicates().to_csv(data_dir / "external" / "target_population.csv", index=False)
     (data_dir / "external" / "coverage_targets.json").write_text(
         json.dumps({"VAC_A": 95, "VAC_B": 95}),
         encoding="utf-8",

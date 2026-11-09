@@ -11,9 +11,7 @@ class IngestionRequest:
     age_groups: tuple[str, ...] = ("0_4", "60_plus")
     vaccines: tuple[str, ...] = ("SCR", "INFLUENZA")
     mode: str = "auto"
-    incoming_dir: Path = field(
-        default_factory=lambda: Path("data/incoming/pni")
-    )
+    incoming_dir: Path = field(default_factory=lambda: Path("data/incoming/pni"))
 
     @property
     def year_dir(self) -> Path:

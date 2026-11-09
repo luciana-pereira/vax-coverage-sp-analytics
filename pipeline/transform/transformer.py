@@ -12,13 +12,12 @@ def load_jsonl(path: Path) -> pd.DataFrame:
                 rows.append(json.loads(line))
     return pd.json_normalize(rows)
 
+
 def normalize_columns(df: pd.DataFrame) -> pd.DataFrame:
     df = df.copy()
-    df.columns = [
-        str(c).strip().lower().replace(" ", "_").replace("-", "_")
-        for c in df.columns
-    ]
+    df.columns = [str(c).strip().lower().replace(" ", "_").replace("-", "_") for c in df.columns]
     return df
+
 
 def transform(df: pd.DataFrame, deduplicate: bool = True) -> pd.DataFrame:
     df = normalize_columns(df)
@@ -40,18 +39,15 @@ def apply_column_mapping(df: pd.DataFrame, mapping: dict[str, str]) -> pd.DataFr
     rename = {source: canonical for canonical, source in mapping.items()}
     return df.rename(columns=rename)
 
+
 def attach_target_population(
     df: pd.DataFrame,
     population: pd.DataFrame,
 ) -> pd.DataFrame:
     """Agrega doses e anexa a população-alvo municipal."""
 
-    if not {"municipality_code", "year", "population"}.issubset(
-        population.columns
-    ):
-        raise KeyError(
-            "População-alvo exige municipality_code, year e population."
-        )
+    if not {"municipality_code", "year", "population"}.issubset(population.columns):
+        raise KeyError("População-alvo exige municipality_code, year e population.")
 
     if "immunizer" in df.columns and "immunizer" not in population.columns:
         raise KeyError(
@@ -63,9 +59,7 @@ def attach_target_population(
     missing = required - set(df.columns)
 
     if missing:
-        raise KeyError(
-            f"Colunas de junção ausentes nos dados de vacinação: {sorted(missing)}"
-        )
+        raise KeyError(f"Colunas de junção ausentes nos dados de vacinação: {sorted(missing)}")
 
     left = df.drop(columns=["population"], errors="ignore").copy()
     join_cols = ["municipality_code", "year"]
@@ -82,26 +76,30 @@ def attach_target_population(
 
     # Normaliza os códigos municipais para evitar valores como 350010.0.
     left["municipality_code"] = (
-        pd.to_numeric(left["municipality_code"], errors="coerce")
-        .astype("Int64")
-        .astype("string")
+        pd.to_numeric(left["municipality_code"], errors="coerce").astype("Int64").astype("string")
     )
 
     right["municipality_code"] = (
-        pd.to_numeric(right["municipality_code"], errors="coerce")
+        pd.to_numeric(right["municipality_code"], errors="coerce").astype("Int64").astype("string")
+    )
+
+    left["year"] = (
+        pd.to_numeric(
+            left["year"],
+            errors="coerce",
+        )
         .astype("Int64")
         .astype("string")
     )
 
-    left["year"] = pd.to_numeric(
-        left["year"],
-        errors="coerce",
-    ).astype("Int64").astype("string")
-
-    right["year"] = pd.to_numeric(
-        right["year"],
-        errors="coerce",
-    ).astype("Int64").astype("string")
+    right["year"] = (
+        pd.to_numeric(
+            right["year"],
+            errors="coerce",
+        )
+        .astype("Int64")
+        .astype("string")
+    )
 
     left["doses"] = pd.to_numeric(
         left["doses"],
@@ -121,14 +119,11 @@ def attach_target_population(
     if "immunizer" in left.columns:
         group_cols.append("immunizer")
 
-    grouped = (
-        left.groupby(
-            group_cols,
-            dropna=False,
-            as_index=False,
-        )["doses"]
-        .sum()
-    )
+    grouped = left.groupby(
+        group_cols,
+        dropna=False,
+        as_index=False,
+    )["doses"].sum()
 
     return grouped.merge(
         right,

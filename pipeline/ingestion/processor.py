@@ -51,18 +51,16 @@ def _aggregate_pni_records(df: pd.DataFrame) -> pd.DataFrame:
         ]
     )
 
-    return (
-        result.groupby(
-            [
-                "municipality_code",
-                "municipality_name",
-                "immunizer",
-                "year",
-            ],
-            as_index=False,
-        )["doses"]
-        .sum()
-    )
+    return result.groupby(
+        [
+            "municipality_code",
+            "municipality_name",
+            "immunizer",
+            "year",
+        ],
+        as_index=False,
+    )["doses"].sum()
+
 
 def _attach_population(
     df: pd.DataFrame,
@@ -85,10 +83,9 @@ def _attach_population(
     result = attach_target_population(df, population)
     issues = validate_population_alignment(result, population)
     if issues:
-        raise RuntimeError(
-            "Ingestão CSV sem denominadores válidos: " + "; ".join(issues)
-        )
+        raise RuntimeError("Ingestão CSV sem denominadores válidos: " + "; ".join(issues))
     return result
+
 
 def process_pni_csv(
     path: Path,
@@ -137,17 +134,14 @@ def process_pni_files(
 
     combined = pd.concat(processed, ignore_index=True)
 
-    aggregated = (
-        combined.groupby(
-            [
-                "municipality_code",
-                "municipality_name",
-                "immunizer",
-                "year",
-            ],
-            as_index=False,
-        )["doses"]
-        .sum()
-    )
+    aggregated = combined.groupby(
+        [
+            "municipality_code",
+            "municipality_name",
+            "immunizer",
+            "year",
+        ],
+        as_index=False,
+    )["doses"].sum()
 
     return _attach_population(aggregated)

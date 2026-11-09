@@ -23,9 +23,7 @@ def filter_pni_chunk(
 
     missing = required - set(df.columns)
     if missing:
-        raise KeyError(
-            f"Colunas obrigatórias ausentes no chunk PNI: {sorted(missing)}"
-        )
+        raise KeyError(f"Colunas obrigatórias ausentes no chunk PNI: {sorted(missing)}")
 
     result = df.copy()
 
@@ -36,16 +34,8 @@ def filter_pni_chunk(
 
     result = result[result["sg_uf_paciente"].eq(uf)]
 
-    target = (
-        (
-            result["nu_idade_paciente"].between(0, 4)
-            & result["sg_imunobiologico"].eq("SCR")
-        )
-        |
-        (
-            result["nu_idade_paciente"].ge(60)
-            & result["sg_imunobiologico"].eq("INF3")
-        )
+    target = (result["nu_idade_paciente"].between(0, 4) & result["sg_imunobiologico"].eq("SCR")) | (
+        result["nu_idade_paciente"].ge(60) & result["sg_imunobiologico"].eq("INF3")
     )
 
     return result.loc[target].copy()

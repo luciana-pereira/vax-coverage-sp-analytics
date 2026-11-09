@@ -15,6 +15,7 @@ def test_normalize_columns():
     assert "nome_município" in out.columns
     assert "ano_vacina" in out.columns
 
+
 def test_transform_removes_duplicates():
     df = pd.DataFrame({"a": [1, 1], "b": ["x", "x"]})
     assert len(transform(df)) == 1

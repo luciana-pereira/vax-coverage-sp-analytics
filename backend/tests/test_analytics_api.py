@@ -242,14 +242,19 @@ def test_postgres_failure_falls_back_without_repeating_attempts(monkeypatch, set
     monkeypatch.setattr(vaccination_analytics_service, "_POSTGRES_FAILURES", {})
     monkeypatch.setenv("VACCINATION_DATABASE_URL", "dsn-not-logged")
     monkeypatch.setenv("VACCINATION_TABLE", "public.vaccination")
+
     def fail_connection(*_):
         calls.append(1)
         raise RuntimeError("PostgreSQL indisponível (OperationalError).")
 
     monkeypatch.setattr(vaccination_analytics_service, "postgres_snapshot", fail_connection)
     local = AnalyticsSnapshot(
-        rows=(), source="PNI | JSONL local", source_updated_at=None, total_rows=0,
-        statewide=False, dimensions={},
+        rows=(),
+        source="PNI | JSONL local",
+        source_updated_at=None,
+        total_rows=0,
+        statewide=False,
+        dimensions={},
     )
     repository = vaccination_analytics_service.VaccinationAnalyticsRepository(settings.raw_dir)
     monkeypatch.setattr(repository, "local_snapshot", lambda: local)

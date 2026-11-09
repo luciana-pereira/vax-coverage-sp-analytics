@@ -20,8 +20,7 @@ def clean_sources(monkeypatch):
 def test_init_db_and_analytics_demo(tmp_path, settings, make_client, clean_sources, file_type):
     source = tmp_path / "input.csv"
     source.write_text(
-        "dt_vacina,sg_imunobiologico,cpf\n"
-        "2024-01-15,DEMO,private-id\n2024-01-16,DEMO,other-id\n",
+        "dt_vacina,sg_imunobiologico,cpf\n2024-01-15,DEMO,private-id\n2024-01-16,DEMO,other-id\n",
         encoding="utf-8",
     )
     if file_type == "parquet":

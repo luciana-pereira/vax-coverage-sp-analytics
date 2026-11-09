@@ -80,9 +80,7 @@ def _cache_snapshot(request: Request, snapshot: AnalyticsSnapshot) -> str:
         cache = {}
         request.app.state.analytics_uploads = cache
     now = time.monotonic()
-    expired_tokens = [
-        token for token, (expires_at, _) in cache.items() if expires_at <= now
-    ]
+    expired_tokens = [token for token, (expires_at, _) in cache.items() if expires_at <= now]
     for token in expired_tokens:
         cache.pop(token, None)
     while len(cache) >= 5:
@@ -99,9 +97,7 @@ def _cache_snapshot(request: Request, snapshot: AnalyticsSnapshot) -> str:
         "Consulta páginas da API PNI e agrega no backend. Os registros individuais da resposta, "
         "incluindo IDs, nunca são gravados nem retornados. A operação pode ser demorada."
     ),
-    responses={
-        502: {"description": "A fonte PNI está indisponível ou retornou dados inválidos."}
-    },
+    responses={502: {"description": "A fonte PNI está indisponível ou retornou dados inválidos."}},
 )
 def refresh_pni(
     request: Request,

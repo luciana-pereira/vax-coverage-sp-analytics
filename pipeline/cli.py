@@ -68,6 +68,7 @@ OPTIONAL_PNI_MAPPING_FIELDS = {
     "facility_name",
 }
 
+
 def load_pni_jsonl(path, target_uf: str = "SP"):
     df = load_jsonl(path)
 
@@ -128,6 +129,7 @@ def _validate_processed_frame(df: pd.DataFrame, settings: PipelineSettings):
     report.issues.extend(validate_population_alignment(df, target_population))
     return report
 
+
 def cmd_extract(settings: PipelineSettings, year: int) -> None:
     endpoint = f"/vacinacao/doses-aplicadas-pni-{year}"
 
@@ -175,8 +177,7 @@ def cmd_transform(settings: PipelineSettings) -> None:
     report = _validate_processed_frame(df, settings)
     if not report.ok:
         raise RuntimeError(
-            "Transformação inválida; o Parquet anterior foi preservado: "
-            + "; ".join(report.issues)
+            "Transformação inválida; o Parquet anterior foi preservado: " + "; ".join(report.issues)
         )
 
     _write_parquet_atomically(df, settings.processed_file)

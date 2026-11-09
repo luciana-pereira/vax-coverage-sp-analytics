@@ -103,8 +103,7 @@ def create_app() -> FastAPI:
             and isinstance(detail, str)
             and len(detail) <= 200
             and not any(
-                marker in detail.lower()
-                for marker in ("traceback", "stack trace", "file \"")
+                marker in detail.lower() for marker in ("traceback", "stack trace", 'file "')
             )
         ):
             message = detail

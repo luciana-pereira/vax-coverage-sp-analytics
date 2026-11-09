@@ -13,6 +13,7 @@ def save_dataframe(df: pd.DataFrame, db_path: Path, table: str):
     finally:
         con.close()
 
+
 def query(db_path: Path, sql: str) -> pd.DataFrame:
     con = duckdb.connect(str(db_path), read_only=True)
     try:

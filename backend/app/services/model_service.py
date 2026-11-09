@@ -32,7 +32,7 @@ class ModelService:
                 status="not_trained",
                 message="Relatório ausente. Execute 'python -m ml.cli train'.",
             )
-            
+
         best = data.get("best_model", "random_forest")
         baseline = data.get("baseline")
 

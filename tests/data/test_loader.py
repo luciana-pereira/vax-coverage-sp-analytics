@@ -1,4 +1,4 @@
-﻿import pandas as pd
+import pandas as pd
 
 from pipeline.load.database import query, save_dataframe
 

@@ -1,4 +1,3 @@
-
 def test_published_api_docs_match_the_live_contract(client):
     """docs/api/openapi.json deve refletir a API real (regenere com scripts/export_openapi.py)."""
     import json

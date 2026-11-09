@@ -59,6 +59,7 @@ def _data_path(name: str, default_relative: str, data_dir: Path) -> Path:
 
     return data_dir / path
 
+
 @dataclass(frozen=True)
 class PipelineSettings:
     pni_api_base_url: str
@@ -88,12 +89,8 @@ def load_settings() -> PipelineSettings:
             "IBGE_SIDRA_BASE_URL",
             "https://apisidra.ibge.gov.br",
         ),
-        ibge_population_table=int(
-            os.getenv("IBGE_POPULATION_TABLE", "6579")
-        ),
-        ibge_population_variable=int(
-            os.getenv("IBGE_POPULATION_VARIABLE", "9324")
-        ),
+        ibge_population_table=int(os.getenv("IBGE_POPULATION_TABLE", "6579")),
+        ibge_population_variable=int(os.getenv("IBGE_POPULATION_VARIABLE", "9324")),
         api_limit=int(os.getenv("API_LIMIT", "1000")),
         api_timeout=int(os.getenv("API_TIMEOUT", "120")),
         target_uf=os.getenv("TARGET_UF", "SP"),

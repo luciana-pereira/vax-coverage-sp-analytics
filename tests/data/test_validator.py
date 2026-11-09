@@ -1,4 +1,4 @@
-﻿import pandas as pd
+import pandas as pd
 
 from pipeline.config import REQUIRED_COLUMNS
 from pipeline.validate.validator import validate_dataset, validate_population_alignment
@@ -83,12 +83,10 @@ def test_population_alignment_rejects_missing_immunizer_and_duplicate_targets():
     targets = vaccination.drop(columns=["immunizer"])
 
     assert any(
-        "immunizer" in issue
-        for issue in validate_population_alignment(vaccination, targets)
+        "immunizer" in issue for issue in validate_population_alignment(vaccination, targets)
     )
 
     duplicated = pd.concat([vaccination, vaccination], ignore_index=True)
     assert any(
-        "duplicadas" in issue
-        for issue in validate_population_alignment(vaccination, duplicated)
+        "duplicadas" in issue for issue in validate_population_alignment(vaccination, duplicated)
     )

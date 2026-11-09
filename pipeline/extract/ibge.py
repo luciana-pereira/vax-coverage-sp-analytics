@@ -30,26 +30,21 @@ def fetch_population(
             "population": int(row["V"]),
         }
         for row in rows
-        if row.get("D2C") == str(variable)
-        and row.get("D1C", "").startswith("35")
+        if row.get("D2C") == str(variable) and row.get("D1C", "").startswith("35")
     ]
+
 
 def fetch_census_age_structure(
     base_url: str = "https://apisidra.ibge.gov.br",
 ) -> list[dict]:
     """Busca a população municipal de SP por idade no Censo 2022."""
-    url = (
-        f"{base_url.rstrip('/')}"
-        "/values/t/9514/n6/in%20n3%2035/p/2022"
-    )
+    url = f"{base_url.rstrip('/')}/values/t/9514/n6/in%20n3%2035/p/2022"
 
     response = get_with_retry(url, timeout=120)
 
     payload = response.json()
 
     if not isinstance(payload, list) or len(payload) < 2:
-        raise ValueError(
-            "Resposta inesperada da API SIDRA para a estrutura etária."
-        )
+        raise ValueError("Resposta inesperada da API SIDRA para a estrutura etária.")
 
     return payload[1:]

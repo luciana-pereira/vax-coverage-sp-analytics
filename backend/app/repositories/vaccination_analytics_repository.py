@@ -198,9 +198,7 @@ def _validate_csv_headers(fieldnames: list[str] | None) -> set[str]:
     return headers
 
 
-def _accumulate_csv_record(
-    record: dict[str, Any], grouped: Counter[tuple[Any, ...]]
-) -> bool:
+def _accumulate_csv_record(record: dict[str, Any], grouped: Counter[tuple[Any, ...]]) -> bool:
     if not record or not any(_norm(value) for value in record.values()):
         return False
     if None in record:
@@ -210,8 +208,7 @@ def _accumulate_csv_record(
     if canonical["date"] is None:
         raise ValueError("O CSV contém datas de vacinação inválidas.")
     if not any(
-        canonical[key]
-        for key in ("vaccine_code", "vaccine_abbreviation", "vaccine_description")
+        canonical[key] for key in ("vaccine_code", "vaccine_abbreviation", "vaccine_description")
     ):
         raise ValueError("Há registros sem código, sigla ou descrição da vacina.")
     grouped[_group_key(canonical)] += 1
