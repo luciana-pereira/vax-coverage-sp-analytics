@@ -58,3 +58,8 @@ Thumbs.db
 
 .agents/
 .github/agents/
+
+# Ignorar arquivos brutos grandes na pasta incoming, exceto a amostragem versionada
+data/incoming/**/*
+!data/incoming/**/.gitkeep
+!data/incoming/pni/2024/01/vacinacao_jan_2024.csv
