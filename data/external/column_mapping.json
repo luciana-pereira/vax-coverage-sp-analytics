@@ -1,6 +1,6 @@
 {
-  "estab_municipio_codigo": "municipality_code",
-  "estab_municipio_nome": "municipality_name",
-  "vacina_nome": "vaccine",
-  "data_aplicacao": "date"
+  "co_municipio_paciente": "municipality_code",
+  "no_municipio_paciente": "municipality_name",
+  "sg_imunobiologico": "vaccine",
+  "dt_vacina": "date"
 }
